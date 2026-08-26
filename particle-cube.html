@@ -33,7 +33,7 @@
   .back{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:500;color:var(--ink-2);text-decoration:none;margin-bottom:10px}
   .back:hover{color:var(--indigo)}
   h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 4px}
-  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:64ch}
+  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:70ch}
 
   .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
   @media (max-width:860px){.grid{grid-template-columns:1fr}}
@@ -47,14 +47,14 @@
     display:grid;place-items:center;position:relative;overflow:hidden;
     transition:background .35s ease;
   }
-  .bigbox[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
-  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#0A0203,#000000)}
+  .bigbox[data-bg="light"]{background:linear-gradient(160deg,#F4E7E5,#F8F1F0)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 38%,#0A0101,#020000)}
   .sizes{display:flex;gap:22px;align-items:flex-end}
   .sizecol{text-align:center}
   .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
   .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
-  .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
-  .chip-holder[data-bg="dark"]{background:#000000}
+  .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#F4E7E5,#F8F1F0)}
+  .chip-holder[data-bg="dark"]{background:#020000}
 
   .status{
     margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Particle cube avatar as a state machine</h1>
-  <p>Same point-grid renderer as the source recording — a rotating lattice of glowing dots on the cube's visible faces, with a brightness wave sweeping across it — rebuilt as continuous parameters instead of a fixed loop. Run a command to see it react.</p>
+  <p>A structured 12×12 particle lattice deforming as one continuous surface — a periodic wave-height field flexes the grid through saddle, ridge and diamond-flat forms, while a separate brightness field drives one or two hotspots travelling their own path across it. Loops every 3s. Trails are each particle's own recent positions, not a synthetic streak. <b>Failed</b> is the one deliberate exception: the lattice comes apart.</p>
 </header>
 
 <div class="grid">
@@ -147,7 +147,7 @@
       <span class="badge">state <b id="b-state">idle</b></span>
       <span class="badge">since <b id="b-since">0.0s</b></span>
       <span class="badge">fps <b id="b-fps">—</b></span>
-      <span class="badge">renderer <b>canvas 2d, 3d point grid</b></span>
+      <span class="badge">renderer <b>canvas 2d, wave-field grid</b></span>
     </div>
   </div>
 
@@ -179,7 +179,7 @@
 </div>
 
 <footer>
-  Points live on the six faces of a cube; back-facing faces cull out as the lattice turns, which is what reads as rotation rather than a flat sprite spin. <code>wave</code> is the coherent diagonal sweep across the whole lattice; <code>twinkle</code> is per-particle star flicker, each point running its own randomized frequency and phase so nothing repeats or syncs; <code>drift</code> is slow independent floating motion layered on top of the rigid rotation, always on, distinct from <code>jitter</code> which is instability reserved for the failed state. Brightness also shifts colour temperature — hot particles desaturate toward white, dim ones sit in the base hue — which is what makes a pop read as a spark rather than a dot getting bigger. <code>hue</code> is the only thing that should ever be treated as a brand decision.
+  <code>waveAmp</code> deforms a fixed 12×12 x/z grid vertically through a periodic sum of sine/cosine terms — a saddle, a diagonal wave, a ridge, layered together on a 3-second loop; the grid positions themselves never drift or scatter. <code>energy</code> scales an entirely separate field: one or two Gaussian hotspots travelling their own closed path across the same grid, independent of the geometry, which is what actually drives brightness — not particle height. Colour runs a fixed dark-red → red → orange → cream → white-hot ramp by brightness. Trails are the particle's own last few projected positions, sampled and thinned into discrete dots, not a synthetic streak. <code>jitter</code> (failed only) displaces particles off their grid slot — a broken lattice, the one state kept intentionally incoherent against the coherence of every other state.
 </footer>
 
 </div>
@@ -190,74 +190,104 @@
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  const LOOP_MS = 3000;
+  const OMEGA = (Math.PI*2) / LOOP_MS;
+
   // ---- State targets ----
-  // energy   0..1  overall brightness / bloom
-  // spin     0..1  yaw rotation speed
-  // density  int   grid points per face edge
-  // wave     0..1  amplitude of the diagonal brightness sweep (whole-lattice)
-  // waveSpd  0..3  speed of the sweep
-  // spread   0..1  cube scale (contracted = focused, wide = expanded)
-  // jitter   0..1  chaotic positional noise — instability, not life
-  // drift    0..1  smooth independent per-particle floating motion — always-on life
-  // twinkle  0..1  per-particle star-like flicker, own phase/frequency per point
-  // trail    0..1  vertical light-rain trailing beneath brighter particles
-  // hue      deg   base colour
-  // sat      0..1  saturation
-  // breath   0..1  amplitude of idle breathing / tilt wobble
+  // energy    0..1   ceiling on the traveling brightness field
+  // waveAmp   0..1   amplitude of the vertical surface deformation
+  // speed     0..3   playback rate of the (still perfectly looping) wave/energy fields
+  // spread    0..1   grid scale (contracted = focused, wide = expanded)
+  // jitter    0..1   off-lattice displacement — reserved for the "failed" broken-lattice look
+  // hue       deg    base colour
+  // breath    0..1   amplitude of a very slight idle camera sway (camera stays ~static)
   const STATES = {
-    paused:  { energy:0.14, spin:0.03, density:7,  wave:0.10, waveSpd:0.3, spread:0.55, jitter:0.00, drift:0.03, twinkle:0.12, trail:0.15, hue:230, sat:0.10, breath:0.10, label:"Paused" },
-    idle:    { energy:0.60, spin:0.18, density:10, wave:0.40, waveSpd:0.8, spread:0.80, jitter:0.02, drift:0.14, twinkle:0.58, trail:0.85, hue:8,   sat:0.90, breath:1.00, label:"Idle / armed" },
-    trigger: { energy:1.00, spin:0.60, density:12, wave:0.75, waveSpd:1.6, spread:1.00, jitter:0.08, drift:0.20, twinkle:0.85, trail:0.90, hue:8,   sat:0.95, breath:0.30, label:"Triggered" },
-    working: { energy:0.90, spin:1.00, density:14, wave:0.90, waveSpd:2.4, spread:0.65, jitter:0.04, drift:0.11, twinkle:0.62, trail:0.95, hue:14,  sat:0.95, breath:0.35, label:"Working" },
-    review:  { energy:0.55, spin:0.10, density:9,  wave:0.28, waveSpd:0.5, spread:0.75, jitter:0.03, drift:0.12, twinkle:0.40, trail:0.50, hue:38,  sat:0.90, breath:0.80, label:"Needs review" },
-    success: { energy:0.90, spin:0.28, density:10, wave:0.50, waveSpd:0.9, spread:0.90, jitter:0.00, drift:0.17, twinkle:0.78, trail:0.70, hue:152, sat:0.75, breath:0.45, label:"Succeeded" },
-    failed:  { energy:0.65, spin:0.14, density:9,  wave:0.35, waveSpd:0.6, spread:0.60, jitter:0.55, drift:0.08, twinkle:0.68, trail:0.60, hue:352, sat:0.85, breath:0.60, label:"Failed" }
+    paused:  { energy:0.16, waveAmp:0.10, speed:0.12, spread:0.75, jitter:0.00, hue:6,   breath:0.10, label:"Paused" },
+    idle:    { energy:0.62, waveAmp:0.55, speed:0.55, spread:0.90, jitter:0.00, hue:6,   breath:0.35, label:"Idle / armed" },
+    trigger: { energy:0.85, waveAmp:0.70, speed:0.90, spread:1.00, jitter:0.00, hue:6,   breath:0.45, label:"Triggered" },
+    working: { energy:1.00, waveAmp:0.85, speed:1.35, spread:0.95, jitter:0.00, hue:8,   breath:0.55, label:"Working" },
+    review:  { energy:0.55, waveAmp:0.40, speed:0.45, spread:0.85, jitter:0.00, hue:36,  breath:0.30, label:"Needs review" },
+    success: { energy:0.85, waveAmp:0.55, speed:0.60, spread:0.95, jitter:0.00, hue:150, breath:0.35, label:"Succeeded" },
+    failed:  { energy:0.60, waveAmp:0.30, speed:0.50, spread:0.80, jitter:0.85, hue:352, breath:0.20, label:"Failed" }
   };
 
-  const RATE = { energy:5.5, spin:2.4, density:3.0, wave:4.0, waveSpd:3.2, spread:3.2, jitter:4.5, drift:3.5, twinkle:4.0, trail:3.5, hue:3.0, sat:3.5, breath:2.5 };
+  const RATE = { energy:5.0, waveAmp:3.5, speed:3.0, spread:3.2, jitter:5.0, hue:3.0, breath:2.5 };
 
   const cur = Object.assign({}, STATES.idle);
   delete cur.label;
   let target = STATES.idle;
-  let stateName = "idle";
   let stateAt = performance.now();
   let queue = [];
+  let waveClock = 0;   // advances by dt*speed — "paused" slows the loop, not the wall clock
+  let lastTickT = performance.now();
 
-  // ---- Cube point cloud: build once at max density, subsample by density param ----
-  const MAXN = 14;
-  function buildFace(axis, sign){
-    // axis: 0=x,1=y,2=z fixed at sign; other two vary across MAXN grid
-    const pts = [];
-    for(let i=0;i<MAXN;i++){
-      for(let j=0;j<MAXN;j++){
-        const u = (i/(MAXN-1))*2-1;
-        const v = (j/(MAXN-1))*2-1;
-        let p;
-        if(axis===0) p=[sign,u,v];
-        else if(axis===1) p=[u,sign,v];
-        else p=[u,v,sign];
-        const n=[0,0,0]; n[axis]=sign;
-        pts.push({ x:p[0], y:p[1], z:p[2], nx:n[0], ny:n[1], nz:n[2], gi:i, gj:j });
+  // ---- Grid: fixed x/z lattice, 12x12, plus a small stable per-point jitter seed ----
+  const GN = 12;
+  const HIST = 7;        // trail samples kept per particle
+  const SAMPLE_EVERY = 4; // frames between trail samples — keeps them visually discrete dots
+  function hash(seed){ const v = Math.sin(seed*12.9898)*43758.5453; return v - Math.floor(v); }
+  const points = [];
+  for(let i=0;i<GN;i++){
+    for(let j=0;j<GN;j++){
+      const gx = (i/(GN-1))*2-1;
+      const gz = (j/(GN-1))*2-1;
+      const idx = i*GN+j;
+      points.push({
+        gx, gz,
+        jx: (hash(idx*1.7+0.3)-0.5)*2,
+        jz: (hash(idx*2.3+1.1)-0.5)*2,
+        jy: (hash(idx*3.1+2.2)-0.5)*2,
+        hist: new Array(HIST).fill(null),
+        histN: 0
+      });
+    }
+  }
+
+  function waveHeight(x,z,t,amp){
+    const w = OMEGA;
+    const a = Math.sin(x*2.1 + t*w) * Math.cos(z*2.1 - t*w);
+    const b = Math.sin((x+z)*1.4 + t*w*2);
+    const c = Math.cos((x-z)*1.9 - t*w);
+    const d = Math.sin(x*3.0 - t*w*3) * Math.sin(z*3.0 + t*w) * 0.4;
+    return (a*0.45 + b*0.28 + c*0.22 + d*0.10) * amp;
+  }
+
+  function energyField(x,z,t){
+    const w = OMEGA;
+    const th = t*w;
+    const hx = Math.cos(th)*1.05, hz = Math.sin(th*1.0+1.1)*1.05;
+    const d2 = (x-hx)*(x-hx)+(z-hz)*(z-hz);
+    const hotspot = Math.exp(-d2/0.55);
+
+    const th2 = th + Math.PI;
+    const hx2 = Math.cos(th2)*0.6, hz2 = Math.sin(th2*1.3)*0.6;
+    const d2b = (x-hx2)*(x-hx2)+(z-hz2)*(z-hz2);
+    const hotspot2 = Math.exp(-d2b/0.32)*0.5;
+
+    return Math.min(1, 0.34 + hotspot*0.80 + hotspot2*0.40);
+  }
+
+  // dark red -> red -> orange -> cream -> white-hot, by brightness (not by height)
+  const EMBER = [
+    [0.00, 0.85, 0.045],
+    [0.16, 0.85, 0.10],
+    [0.36, 0.92, 0.19],
+    [0.56, 0.95, 0.32],
+    [0.76, 0.85, 0.48],
+    [0.90, 0.50, 0.70],
+    [1.00, 0.12, 0.95]
+  ];
+  function emberSL(b){
+    b = Math.max(0, Math.min(1,b));
+    for(let i=0;i<EMBER.length-1;i++){
+      const s0=EMBER[i], s1=EMBER[i+1];
+      if(b>=s0[0] && b<=s1[0]){
+        const f = (b-s0[0])/(s1[0]-s0[0]);
+        return [s0[1]+(s1[1]-s0[1])*f, s0[2]+(s1[2]-s0[2])*f];
       }
     }
-    return pts;
+    return [EMBER[EMBER.length-1][1], EMBER[EMBER.length-1][2]];
   }
-  const allPoints = [
-    ...buildFace(0, 1), ...buildFace(0,-1),
-    ...buildFace(1, 1), ...buildFace(1,-1),
-    ...buildFace(2, 1), ...buildFace(2,-1)
-  ];
-  // deterministic per-point randoms so drift/twinkle/jitter never sync up or repeat visibly
-  function hash(seed){ const v = Math.sin(seed*12.9898)*43758.5453; return v - Math.floor(v); }
-  allPoints.forEach((p, i) => {
-    p.ph  = (Math.sin(p.x*12.9898+p.y*78.233+p.z*37.719)*43758.5453) % 1;
-    p.rx  = hash(i*1.13 + 0.31);
-    p.ry  = hash(i*2.71 + 1.77);
-    p.rz  = hash(i*3.37 + 2.93);
-    p.rt  = hash(i*4.19 + 0.57);   // twinkle phase seed
-    p.rt2 = hash(i*5.93 + 1.31);   // twinkle frequency seed
-  });
-
   function hsl(h,s,l,a){ return `hsla(${h.toFixed(0)},${(s*100).toFixed(0)}%,${(l*100).toFixed(0)}%,${a.toFixed(3)})`; }
 
   // ---- Canvases ----
@@ -270,177 +300,132 @@
     return { ctx, size: cssW };
   });
 
-  function draw(view, t){
+  let frameN = 0;
+
+  function draw(view, t, sampleThisFrame){
     const { ctx, size } = view;
     const S = size * dpr;
     ctx.clearRect(0,0,S,S);
     ctx.save();
-    ctx.translate(S/2, S/2);
+    ctx.translate(S/2, S*0.46);
 
-    const detail = size >= 56 ? 1 : (size >= 36 ? 0.62 : 0.34);
-    const N = Math.max(3, Math.round(cur.density * (0.5 + detail*0.5)));
-    const step = MAXN / N;
+    const detail = size >= 140 ? 1 : (size >= 56 ? 0.6 : 0.32);
+    const breathe = Math.sin(t*0.00028) * 0.05 * cur.breath;
+    const tiltX = -0.68 + breathe;      // looking down from above
+    const yawY  = 0.46 + breathe*0.4;   // slightly from one side — camera stays ~fixed
+    const cX = Math.cos(tiltX), sX = Math.sin(tiltX);
+    const cY = Math.cos(yawY), sY = Math.sin(yawY);
 
-    const yaw = t * 0.00055 * cur.spin;
-    const breathe = Math.sin(t*0.0016) * 0.10 * cur.breath;
-    const tilt = -0.58 + breathe*0.4;
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cx = Math.cos(tilt), sx = Math.sin(tilt);
-
-    const jitterAmt = cur.jitter * 0.16;
-    const driftAmt = cur.drift * 0.22;
-    const scale = S * 0.205 * (0.72 + cur.spread*0.4) * (1 + breathe*0.15);
-    const dist = 3.4;
-    const h = cur.hue, sat = cur.sat, e = cur.energy;
+    const scale = S * 0.150 * (0.70 + cur.spread*0.45);
+    const dist = 3.6;
+    const h = cur.hue;
+    const jitterAmt = cur.jitter * 0.55;
+    const wc = waveClock;
 
     const proj = [];
-    for(let idx=0; idx<allPoints.length; idx++){
-      const p = allPoints[idx];
-      if(p.gi % step >= 1 || p.gj % step >= 1) continue; // density subsample
+    for(const p of points){
+      let x = p.gx, z = p.gz;
+      let y = waveHeight(x, z, wc, cur.waveAmp);
+      let en = energyField(x, z, wc) * cur.energy;
 
-      // chaotic instability (failed state) — fast, erratic
-      let jx=0, jy=0, jz=0;
       if(jitterAmt){
-        jx = Math.sin(t*0.006 + p.ph*40) * jitterAmt;
-        jy = Math.cos(t*0.007 + p.ph*33) * jitterAmt;
-        jz = Math.sin(t*0.005 + p.ph*51) * jitterAmt;
+        x += p.jx * jitterAmt * 0.9;
+        z += p.jz * jitterAmt * 0.9;
+        y += p.jy * jitterAmt * 1.3;
+        en = Math.max(en*0.4, 0.14 + Math.abs(p.jy)*0.3*jitterAmt);
       }
-      // always-on independent floating motion — smooth, slow, never synchronized
-      // between particles because each uses its own hashed frequency + phase
-      let dx=0, dy=0, dz=0;
-      if(driftAmt){
-        dx = Math.sin(t*0.0016*(0.5+p.rx*0.9) + p.rx*23.1) * driftAmt;
-        dy = Math.cos(t*0.0013*(0.5+p.ry*0.9) + p.ry*19.4) * driftAmt;
-        dz = Math.sin(t*0.0011*(0.5+p.rz*0.9) + p.rz*27.6) * driftAmt;
+
+      // yaw around Y, then tilt around X
+      let x1 = x*cY + z*sY;
+      let z1 = -x*sY + z*cY;
+      let y1 = y*cX - z1*sX;
+      let z2 = y*sX + z1*cX;
+
+      const pers = dist/(dist-z2);
+      const sx = x1*pers*scale;
+      const sy = -y1*pers*scale;
+
+      if(sampleThisFrame && detail>0.9){
+        p.hist[p.histN % HIST] = { sx, sy, pers, en };
+        p.histN++;
       }
-      let x=p.x+jx+dx, y=p.y+jy+dy, z=p.z+jz+dz;
 
-      // yaw (around Y), then tilt (around X)
-      let x1 = x*cy + z*sy;
-      let z1 = -x*sy + z*cy;
-      let y1 = y*cx - z1*sx;
-      let z2 = y*sx + z1*cx;
-
-      let nx1 = p.nx*cy + p.nz*sy;
-      let nz1 = -p.nx*sy + p.nz*cy;
-      let ny1 = p.ny*cx - nz1*sx;
-      let nz2 = p.ny*sx + nz1*cx;
-      if(nz2 < 0.04) continue; // backface cull
-
-      const pers = dist / (dist - z2);
-      const sxp = x1 * pers * scale;
-      const syp = -y1 * pers * scale;
-
-      // diagonal sweep — the coherent, whole-lattice wave
-      const wavePhase = (p.x + p.y + p.z) * 1.15 - t*0.0022*cur.waveSpd;
-      const waveVal = (Math.sin(wavePhase*3.0) * 0.5 + 0.5);
-      const base = (0.22 + waveVal*cur.wave) * (0.5 + e*0.65) * (0.35 + nz2*0.95);
-
-      // star twinkle — independent per-particle on/off, smooth (sine-based, never a hard cut),
-      // two layered frequencies from the point's own hash so nothing repeats in sync
-      const freqA = 1.3 + p.rt2*2.3, freqB = 0.45 + p.rt*1.05;
-      const raw = Math.sin(t*0.0021*freqA + p.rt*31) * 0.55 + Math.sin(t*0.0009*freqB + p.rt2*17) * 0.45;
-      const flick = Math.pow(Math.max(0, raw*0.5+0.5), 3.1); // biases toward dim, rarer sharper bright pop
-      const bright = base * ((1 - cur.twinkle*0.8) + cur.twinkle*0.8 * flick * 1.9);
-
-      proj.push({ sx:sxp, sy:syp, z:z2, pers, bright, seed:p.rt });
+      proj.push({ p, sx, sy, z:z2, pers, en });
     }
-    proj.sort((a,b) => a.z - b.z);
+    proj.sort((a,b)=>a.z-b.z);
 
-    // only the genuinely brightest handful get a flare — a scatter of crossed
-    // streaks reads as noise, a few hero pops read as flair
-    const flareCap = size >= 140 ? 3 : (size >= 56 ? 1 : 0);
-    const flareSet = new Set(
-      proj.filter(q => q.bright > 0.88).sort((a,b) => b.bright - a.bright).slice(0, flareCap)
-    );
+    const persFocal = 1.0; // depth-of-field focal plane
 
     for(const q of proj){
-      const bc = Math.max(0, Math.min(1, q.bright));
-      const r = Math.max(0.7, S*0.0155) * (0.5 + q.pers*0.6) * (0.75 + bc*0.5);
+      const bc = Math.max(0, Math.min(1, q.en));
+      const closeness = Math.max(0, q.pers - persFocal);
+      const [sSat, sLight] = emberSL(bc);
+      const baseR = Math.max(0.6, S*0.011) * (0.55 + q.pers*0.55);
+      const r = baseR * (1 + closeness*0.9);
+      const blurPx = detail>0.9 ? Math.min(3.2, closeness*7) : 0;
 
-      // colour temperature: dim particles stay saturated base hue,
-      // bright ones desaturate toward a hot white core — this is the "star" read
-      const starSat = Math.max(0, sat * (1 - bc*0.62));
-      const starLight = Math.min(0.94, 0.30 + bc*0.6);
-
-      // vertical light-rain trail — a train of shrinking, fading dots falling straight down
-      // in screen space (independent of cube rotation), the way the reference clip's cascade reads.
-      // Length and dot count are gated by the point's own hash so trails vary organically instead
-      // of every particle sprouting a uniform tail.
-      if(detail > 0.4 && cur.trail > 0.02 && bc > 0.10){
-        const chance = Math.pow(q.seed, 1.7);
-        const segCount = Math.round(chance * 11 * cur.trail);
-        if(segCount > 1){
-          const trailLen = r * (4 + bc*24) * (0.25 + chance*0.9) * cur.trail;
-          for(let s=1; s<=segCount; s++){
-            const ft = s/segCount;
-            const fade = Math.pow(1-ft, 1.7) * bc;
-            if(fade < 0.02) continue;
-            const sr = Math.max(0.4, r * (0.8 - ft*0.55));
-            const tSat = Math.max(0, starSat * (1 - ft*0.25));
-            const tLight = Math.max(0.32, starLight * (1 - ft*0.45));
-            ctx.fillStyle = hsl(h, tSat, tLight, Math.min(1, fade*0.85));
-            ctx.beginPath(); ctx.arc(q.sx, q.sy + ft*trailLen, sr, 0, Math.PI*2); ctx.fill();
-          }
+      // trail: the particle's own thinned position history, discrete dots, not a synthetic streak
+      if(detail>0.9 && q.p.histN>1){
+        const n = Math.min(HIST, q.p.histN);
+        for(let k=1;k<n;k++){
+          const idx = (q.p.histN-1-k+HIST*HIST) % HIST;
+          const sample = q.p.hist[idx];
+          if(!sample) continue;
+          const age = k/n;
+          const fade = Math.pow(1-age, 1.6) * sample.en;
+          if(fade < 0.03) continue;
+          const [tSat,tLight] = emberSL(sample.en);
+          const tr = baseR * (0.75 - age*0.5);
+          ctx.fillStyle = hsl(h, tSat*0.9, Math.max(0.10,tLight*0.85), Math.min(1,fade*0.8));
+          ctx.beginPath(); ctx.arc(sample.sx, sample.sy, Math.max(0.35,tr), 0, Math.PI*2); ctx.fill();
         }
       }
 
-      if(detail > 0.4){
-        const glowR = r * (3.6 + bc*1.8);
+      // soft outer bloom — merges with neighbours into one luminous patch when several are bright
+      if(detail>0.4 && bc>0.14){
+        if(blurPx>0.3) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+        ctx.globalCompositeOperation = "lighter";
+        const glowR = r*(3.0+bc*3.2);
         const g = ctx.createRadialGradient(q.sx,q.sy,0,q.sx,q.sy,glowR);
-        g.addColorStop(0, hsl(h, starSat, Math.min(0.85,starLight+0.12), 0.60*bc));
-        g.addColorStop(1, hsl(h, sat, 0.5, 0));
+        g.addColorStop(0, hsl(h, sSat, Math.min(0.9,sLight+0.10), 0.15+Math.pow(bc,1.15)*0.45));
+        g.addColorStop(1, hsl(h, sSat, sLight, 0));
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(q.sx,q.sy,glowR,0,Math.PI*2); ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.filter = "none";
       }
 
-      // soft 4-point flare, reserved for the capped set of hero pops — the "flair" in the source clip
-      if(detail > 0.55 && flareSet.has(q)){
-        const flareA = (bc-0.80)/0.20;
-        const flareLen = r * (5.5 + flareA*4.5);
-        ctx.save();
-        ctx.translate(q.sx,q.sy);
-        for(let ax=0; ax<2; ax++){
-          ctx.save();
-          if(ax) ctx.rotate(Math.PI/2);
-          ctx.scale(1, 0.11);
-          const fg = ctx.createRadialGradient(0,0,0,0,0,flareLen);
-          fg.addColorStop(0, hsl(h, starSat*0.5, 0.92, 0.35*flareA));
-          fg.addColorStop(1, hsl(h, starSat, 0.7, 0));
-          ctx.fillStyle = fg;
-          ctx.beginPath(); ctx.arc(0,0,flareLen,0,Math.PI*2); ctx.fill();
-          ctx.restore();
-        }
-        ctx.restore();
-      }
-
-      // additive only for the tiny hot core — small enough area that dense overlap
-      // still reads as sparkle rather than washing the whole frame to white
+      // core — tiny additive hot point, soft-edged (radial gradient, not a hard disc)
+      if(blurPx>0.3) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
       ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = hsl(h, starSat, starLight, Math.min(1, 0.30+bc*0.85));
-      ctx.beginPath(); ctx.arc(q.sx,q.sy,r,0,Math.PI*2); ctx.fill();
+      const coreG = ctx.createRadialGradient(q.sx,q.sy,0,q.sx,q.sy,r*1.6);
+      coreG.addColorStop(0, hsl(h, sSat*0.6, Math.min(0.97,sLight+0.18), Math.min(1,0.55+bc*0.6)));
+      coreG.addColorStop(1, hsl(h, sSat, sLight, 0));
+      ctx.fillStyle = coreG;
+      ctx.beginPath(); ctx.arc(q.sx,q.sy,r*1.6,0,Math.PI*2); ctx.fill();
       ctx.globalCompositeOperation = "source-over";
+      ctx.filter = "none";
     }
 
-    // ambient core glow tying the cube together at rest
-    if(detail > 0.4){
-      const coreR = S*0.30*(0.6+e*0.5);
-      const core = ctx.createRadialGradient(0,0,0,0,0,coreR);
-      core.addColorStop(0, hsl(h, sat*0.7, 0.6, 0.10*e));
-      core.addColorStop(1, hsl(h, sat, 0.5, 0));
-      ctx.fillStyle = core;
-      ctx.beginPath(); ctx.arc(0,0,coreR,0,Math.PI*2); ctx.fill();
+    // extremely subtle red atmospheric haze tying the lattice together
+    if(detail>0.4){
+      const hazeR = S*0.42;
+      const haze = ctx.createRadialGradient(0,0,0,0,0,hazeR);
+      haze.addColorStop(0, hsl(h, 0.7, 0.30, 0.05*cur.energy));
+      haze.addColorStop(1, hsl(h, 0.7, 0.20, 0));
+      ctx.fillStyle = haze;
+      ctx.beginPath(); ctx.arc(0,0,hazeR,0,Math.PI*2); ctx.fill();
     }
 
     ctx.restore();
   }
 
   // ---- Loop ----
-  let last = performance.now(), fpsAcc = 0, fpsN = 0;
+  let fpsAcc = 0, fpsN = 0;
 
   function tick(now){
-    const dt = Math.min(0.05, (now-last)/1000);
-    last = now;
+    const dt = Math.min(0.05, (now-lastTickT)/1000);
+    lastTickT = now;
 
     for(const k in RATE){
       const k2 = Math.min(1, dt*RATE[k]*(reduced?4:1));
@@ -452,10 +437,13 @@
         cur[k] += (target[k]-cur[k])*k2;
       }
     }
+    waveClock += dt*1000*cur.speed;
 
     if(queue.length && now >= queue[0].at){ const q=queue.shift(); apply(q.state,q.note); }
 
-    for(const v of views) draw(v, now);
+    frameN++;
+    const sampleThisFrame = (frameN % SAMPLE_EVERY) === 0;
+    for(const v of views) draw(v, now, sampleThisFrame);
 
     fpsAcc += 1/dt; fpsN++;
     if(fpsN>=30){ document.getElementById("b-fps").textContent = Math.round(fpsAcc/fpsN); fpsN=0; fpsAcc=0; }
@@ -465,16 +453,16 @@
   }
 
   const paramsEl = document.getElementById("params");
-  const keys = ["energy","spin","density","wave","waveSpd","drift","twinkle","trail","spread","jitter","hue","sat"];
+  const keys = ["energy","waveAmp","speed","spread","jitter","hue","breath"];
   paramsEl.innerHTML = keys.map(k => `<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
   let paintN=0;
   function renderParams(){
     if(paintN++ % 4) return;
     for(const k of keys){
       const v = cur[k];
-      const norm = k==="hue" ? v/360 : (k==="density" ? v/14 : (k==="waveSpd" ? v/3 : v));
+      const norm = k==="hue" ? v/360 : (k==="speed" ? v/3 : v);
       document.getElementById("bar-"+k).style.width = (Math.max(0,Math.min(1,norm))*100).toFixed(0)+"%";
-      document.getElementById("val-"+k).textContent = (k==="density") ? v.toFixed(1) : (k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2));
+      document.getElementById("val-"+k).textContent = k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2);
     }
   }
 
@@ -489,7 +477,7 @@
 
   function apply(name, note){
     if(!STATES[name]) return;
-    target = STATES[name]; stateName = name; stateAt = performance.now();
+    target = STATES[name]; stateAt = performance.now();
     document.getElementById("b-state").textContent = name;
     for(const b of document.querySelectorAll("#states button")) b.setAttribute("aria-pressed", String(b.dataset.s===name));
     log(name, note);
