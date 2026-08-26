@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Waveform avatar as a state machine</h1>
-  <p>Six parallel rows folded into a tilted plane, each carrying the same travelling sine wave offset by depth — a covered oscilloscope rather than a flat 2D trace. One bright marker per row rides its own wave crest at a shared horizontal position, sweeping the whole folded surface once per loop.</p>
+  <p>A woven mesh, not parallel lines — seven rows and fourteen columns, connected both ways, draped over one travelling sine wave offset by depth. A bright marker per row rides its own wave crest at a shared horizontal position, sweeping the whole net once per loop.</p>
 </header>
 
 <div class="grid">
@@ -191,8 +191,8 @@
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const TAU = Math.PI*2;
   const LOOP_MS = 3000;
-  const ROWS = 6;
-  const SEGMENTS = 40;
+  const ROWS = 7;
+  const SEGMENTS = 13;
   const TILT = 0.62;
 
   const STATES = {
@@ -247,32 +247,62 @@
     const J = cur.jitter;
     const highlightX = -1 + 2*phase;
 
+    // Build the full grid once — a woven mesh, not independent parallel strokes.
+    // Rows AND columns get connected, which is what makes this read as a draped
+    // net rather than a stack of unrelated wave traces.
+    const grid = [];
     for(let r=0;r<ROWS;r++){
       const z = (r/(ROWS-1))*2-1;
-      const rowDepth = (z+1)/2; // 0 front .. 1 back
-      const rowAlpha = (0.22 + (1-rowDepth)*0.55) * eMul;
       const jz = z + hash(r+10)*J*0.25;
+      const row = [];
+      for(let i=0;i<=SEGMENTS;i++){
+        const x = (i/SEGMENTS)*2-1;
+        const y = Math.sin(x*4.2 + phase*TAU - jz*1.1) * 0.30 * cur.amp + hash(r*13+i+100)*J*0.06;
+        const p = project(x,y,jz,scale);
+        row.push({ x, y, z:jz, sx:p.sx, sy:p.sy, rowDepth:(z+1)/2 });
+      }
+      grid.push(row);
+    }
 
-      if(detail>0.3){
+    if(detail>0.3){
+      // columns first (behind), then rows on top — rows carry the wave's identity
+      for(let i=0;i<=SEGMENTS;i++){
         ctx.beginPath();
-        for(let i=0;i<=SEGMENTS;i++){
-          const x = (i/SEGMENTS)*2-1;
-          const y = Math.sin(x*4.2 + phase*TAU*1 - jz*1.1) * 0.30 * cur.amp + hash(r*13+i+100)*J*0.06;
-          const p = project(x,y,jz,scale);
-          if(i===0) ctx.moveTo(p.sx,p.sy); else ctx.lineTo(p.sx,p.sy);
+        for(let r=0;r<ROWS;r++){
+          const n = grid[r][i];
+          if(r===0) ctx.moveTo(n.sx,n.sy); else ctx.lineTo(n.sx,n.sy);
         }
+        ctx.strokeStyle = c(75,58,0.26*eMul);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      for(let r=0;r<ROWS;r++){
+        const row = grid[r];
+        const rowAlpha = (0.22 + (1-row[0].rowDepth)*0.55) * eMul;
+        ctx.beginPath();
+        row.forEach((n,i)=>{ if(i===0) ctx.moveTo(n.sx,n.sy); else ctx.lineTo(n.sx,n.sy); });
         ctx.strokeStyle = c(85, 60, rowAlpha);
-        ctx.lineWidth = (1.4 - rowDepth*0.7);
+        ctx.lineWidth = (1.3 - row[0].rowDepth*0.6);
         ctx.shadowColor = `hsl(${cur.hue.toFixed(0)},90%,55%)`;
-        ctx.shadowBlur = 4 + (1-rowDepth)*6*eMul;
+        ctx.shadowBlur = 4 + (1-row[0].rowDepth)*6*eMul;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
+      // node dots at every intersection — the "woven" read comes from these as much as the lines
+      grid.forEach(row => row.forEach(n => {
+        const near = Math.max(0, 1 - Math.abs(n.x-highlightX)*1.6);
+        const b = (0.22 + (1-n.rowDepth)*0.18 + near*0.5) * eMul;
+        ctx.fillStyle = c(70, 66, b);
+        ctx.beginPath(); ctx.arc(n.sx, n.sy, Math.max(0.7, S*0.0065*(0.6+near)), 0, TAU); ctx.fill();
+      }));
+    }
 
-      // travelling highlight marker riding this row's crest
+    // travelling highlight marker riding each row's crest, sweeping the fold once per loop
+    grid.forEach(row=>{
+      const rowDepth = row[0].rowDepth;
       const hx = highlightX;
-      const hy = Math.sin(hx*4.2 + phase*TAU - jz*1.1) * 0.30 * cur.amp;
-      const hp = project(hx, hy, jz, scale);
+      const hy = Math.sin(hx*4.2 + phase*TAU - row[0].z*1.1) * 0.30 * cur.amp;
+      const hp = project(hx, hy, row[0].z, scale);
       const markerBoost = 0.5 + 0.5*(1-rowDepth);
       const g = ctx.createRadialGradient(hp.sx,hp.sy,0,hp.sx,hp.sy,S*0.05*markerBoost);
       g.addColorStop(0, c(20, 95, 0.85*eMul*markerBoost));
@@ -281,7 +311,7 @@
       ctx.beginPath(); ctx.arc(hp.sx,hp.sy,S*0.05*markerBoost,0,TAU); ctx.fill();
       ctx.fillStyle = c(15, 97, 0.9*eMul);
       ctx.beginPath(); ctx.arc(hp.sx,hp.sy,Math.max(0.8,S*0.010*markerBoost),0,TAU); ctx.fill();
-    }
+    });
 
     ctx.globalCompositeOperation = "source-over";
     ctx.restore();

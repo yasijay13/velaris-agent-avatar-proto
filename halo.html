@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Halo avatar as a state machine</h1>
-  <p>Four elliptical rings at independent tilts, each slowly precessing — its own rotation oscillating on the same 3-second loop rather than spinning freely — with glowing nodes riding each ring at a fixed integer lap count. A calm, governing presence: nothing here moves fast except in <b>Working</b>.</p>
+  <p>A true icosahedron core, slowly turning, with two large rings crossing it at very different tilts — each precessing in place rather than spinning freely. A calm, governing presence: nothing here moves fast except in <b>Working</b>.</p>
 </header>
 
 <div class="grid">
@@ -179,7 +179,7 @@
 </div>
 
 <footer>
-  Each ring's tilt oscillates as <code>rot + precessAmp·sin(phase·k)</code> — an integer <code>k</code> keeps it exactly seamless across the 3-second loop, and the small amplitude is what reads as "precession" rather than spin. Ring nodes orbit at an integer lap count of their own, independent of the ring's precession. <code>spread</code> scales every ring's radii together; <code>jitter</code> (failed only) knocks each ring's tilt and node position off its calculated position.
+The core is a true icosahedron — 12 vertices at the golden ratio, edges found by nearest-neighbour distance rather than hand-listed — slowly turning on its own axis. Two large rings, tilted on very different axes, cross through it; each tilt oscillates as <code>tilt + precessAmp·sin(phase·k)</code>, an integer <code>k</code> so it stays seamless across the loop, and the small amplitude is what reads as "precession" rather than spin. <code>spread</code> scales every ring together; <code>jitter</code> (failed only) knocks vertices and rings off their calculated positions.
 </footer>
 
 </div>
@@ -214,17 +214,44 @@
   function hash(seed){ const v = Math.sin(seed*91.345)*43758.5453; return v - Math.floor(v) - 0.5; }
   function c(s,l,a){ return `hsla(${cur.hue.toFixed(0)},${s}%,${l}%,${Math.max(0,Math.min(1,a)).toFixed(3)})`; }
 
+  // Two large rings crossing at very different tilts — "multi-axis orbital rings" —
+  // around a solid wireframe core, rather than several flat, similarly-tilted ellipses.
   const RINGS = [
-    { rx:0.62, ry:0.30, rot:-0.35, k:1, amp:0.20, lap:1,  n:2, w:1.7, base:0.44 },
-    { rx:0.58, ry:0.42, rot:0.55,  k:1, amp:0.16, lap:-1, n:2, w:1.3, base:0.30 },
-    { rx:0.66, ry:0.22, rot:1.15,  k:2, amp:0.10, lap:2,  n:1, w:1.1, base:0.24 },
-    { rx:0.48, ry:0.48, rot:0.0,   k:1, amp:0.09, lap:-2, n:2, w:1.0, base:0.20 }
+    { rx:1.75, ry:0.75, tiltX:-0.18, tiltZ:0.55,  k:1, amp:0.10, lap:1,  n:2, w:1.6, base:0.42 },
+    { rx:1.62, ry:0.95, tiltX:0.62,  tiltZ:-0.30, k:1, amp:0.08, lap:-1, n:2, w:1.3, base:0.32 }
   ];
 
-  function ellipsePoint(rx,ry,rot,angle){
-    const x = rx*Math.cos(angle), y = ry*Math.sin(angle);
-    const cr = Math.cos(rot), sr = Math.sin(rot);
-    return { x: x*cr - y*sr, y: x*sr + y*cr };
+  // ---- Solid wireframe core: a regular icosahedron, the silhouette Halo is built around ----
+  const PHI = (1+Math.sqrt(5))/2;
+  const ICO_RAW = [];
+  for(const s1 of [1,-1]) for(const s2 of [1,-1]){
+    ICO_RAW.push([0, s1, s2*PHI]);
+    ICO_RAW.push([s1, s2*PHI, 0]);
+    ICO_RAW.push([s2*PHI, 0, s1]);
+  }
+  const ICO_NORM = Math.hypot(1, PHI);
+  const ICO_V = ICO_RAW.map(([x,y,z]) => [x/ICO_NORM, y/ICO_NORM, z/ICO_NORM]);
+  const ICO_E = (() => {
+    let minD = Infinity;
+    for(let i=0;i<ICO_V.length;i++) for(let j=i+1;j<ICO_V.length;j++){
+      const d = Math.hypot(ICO_V[i][0]-ICO_V[j][0], ICO_V[i][1]-ICO_V[j][1], ICO_V[i][2]-ICO_V[j][2]);
+      if(d<minD) minD = d;
+    }
+    const edges = [];
+    for(let i=0;i<ICO_V.length;i++) for(let j=i+1;j<ICO_V.length;j++){
+      const d = Math.hypot(ICO_V[i][0]-ICO_V[j][0], ICO_V[i][1]-ICO_V[j][1], ICO_V[i][2]-ICO_V[j][2]);
+      if(d < minD*1.01) edges.push([i,j]);
+    }
+    return edges;
+  })();
+
+  function rotate3(p, yaw, tilt){
+    const [x,y,z] = p;
+    const x1 = x*Math.cos(yaw) + z*Math.sin(yaw);
+    const z1 = -x*Math.sin(yaw) + z*Math.cos(yaw);
+    const y1 = y*Math.cos(tilt) - z1*Math.sin(tilt);
+    const z2 = y*Math.sin(tilt) + z1*Math.cos(tilt);
+    return [x1,y1,z2];
   }
 
   function glowDot(ctx,x,y,radius,intensity){
@@ -270,25 +297,58 @@
     ctx.fillStyle = field;
     ctx.beginPath(); ctx.arc(0,0,R*1.1,0,TAU); ctx.fill();
 
+    const dist = 3.4;
+    function proj3(p){
+      const pers = dist/(dist-p[2]);
+      return { x: p[0]*pers*R*0.55, y: -p[1]*pers*R*0.55, pers };
+    }
+
+    // Solid wireframe icosahedron — the piece that gives Halo its actual silhouette.
+    const icoYaw = a*1 + hash(1)*J*0.6;
+    const icoTilt = -0.38 + hash(2)*J*0.4;
+    const icoPts = ICO_V.map((v,vi)=>{
+      const jv = J ? [v[0]+hash(vi+900)*J*0.14, v[1]+hash(vi+920)*J*0.14, v[2]+hash(vi+940)*J*0.14] : v;
+      return proj3(rotate3(jv, icoYaw, icoTilt));
+    });
+    if(detail>0.3){
+      ICO_E.forEach(([i0,i1])=>{
+        const p0 = icoPts[i0], p1 = icoPts[i1];
+        const depth = (p0.pers+p1.pers)/2;
+        ctx.strokeStyle = c(75, 62, (0.34+Math.max(0,depth-0.85)*0.9)*eMul);
+        ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+      });
+    }
+    icoPts.forEach((p,vi)=>{
+      if(vi%2) return; // every other vertex lit, keeps the core readable rather than busy
+      glowDot(ctx, p.x, p.y, detail>0.45?2.2:1.8, (0.35+0.3*Math.cos(a*2+vi))*eMul);
+    });
+
+    // Two large rings crossing the icosahedron at very different tilts.
     RINGS.forEach((ring,i)=>{
-      const rot = ring.rot + ring.amp*Math.sin(a*ring.k) + hash(i+10)*J*0.5;
-      const rx = R*ring.rx*(1+hash(i+20)*J*0.12);
-      const ry = R*ring.ry*(1+hash(i+30)*J*0.12);
+      const tz = ring.tiltZ + ring.amp*Math.sin(a*ring.k) + hash(i+10)*J*0.4;
+      const tx = ring.tiltX + hash(i+15)*J*0.3;
+      const rx = ring.rx*(1+hash(i+20)*J*0.10);
+      const ry = ring.ry*(1+hash(i+30)*J*0.10);
+      const N = 56;
       if(detail>0.3){
-        ctx.save();
-        ctx.rotate(rot);
-        ctx.strokeStyle = c(78,60,ring.base*eMul);
-        ctx.lineWidth = ring.w;
         ctx.beginPath();
-        ctx.ellipse(0,0,Math.max(0.1,rx),Math.max(0.1,ry),0,0,TAU);
+        for(let s=0;s<=N;s++){
+          const t = (s/N)*TAU;
+          const local = [Math.cos(t)*rx, Math.sin(t)*ry, 0];
+          const p = proj3(rotate3(local, tz, tx));
+          if(s===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+        }
+        ctx.strokeStyle = c(80,62,ring.base*eMul);
+        ctx.lineWidth = ring.w;
         ctx.stroke();
-        ctx.restore();
       }
       for(let j=0;j<ring.n;j++){
-        const angle = a*ring.lap + (j/ring.n)*TAU + hash(i*7+j+40)*J*0.6;
-        const p = ellipsePoint(rx,ry,rot,angle);
+        const angle = a*ring.lap + (j/ring.n)*TAU + hash(i*7+j+40)*J*0.5;
+        const local = [Math.cos(angle)*rx, Math.sin(angle)*ry, 0];
+        const p = proj3(rotate3(local, tz, tx));
         const flick = .6+.4*Math.cos(a*2+i*1.6+j*2.3);
-        glowDot(ctx, p.x, p.y, detail>0.45?4.4:3.6, flick*eMul);
+        glowDot(ctx, p.x, p.y, detail>0.45?4.6:3.8, flick*eMul);
       }
     });
 

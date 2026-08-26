@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Signal avatar as a state machine</h1>
-  <p>A hub node and seven satellites on fixed spokes. A pulse launches from the hub along each spoke on its own offset — evenly staggered around the same 3-second loop — and the satellite flashes on arrival. Nothing travels between satellites directly; every signal passes through the centre, like a relay.</p>
+  <p>A starburst hub, seven satellites, and a mesh linking every satellite to its ring neighbours as well as the centre. A pulse launches from the hub along each spoke on its own offset — evenly staggered around the same 3-second loop — and the satellite flashes on arrival.</p>
 </header>
 
 <div class="grid">
@@ -257,15 +257,6 @@
     ctx.fillStyle = field;
     ctx.beginPath(); ctx.arc(0,0,R*1.1,0,TAU); ctx.fill();
 
-    // faint guide rings for depth
-    if(detail>0.3){
-      [0.55,0.92].forEach((f,gi)=>{
-        ctx.strokeStyle = c(70,55,(gi?0.10:0.16)*eMul);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(0,0,R*f,0,TAU); ctx.stroke();
-      });
-    }
-
     const satellites = [];
     for(let i=0;i<N;i++){
       const angle = (i/N)*TAU + hash(i+10)*J*0.5;
@@ -273,11 +264,25 @@
       satellites.push({ x: Math.cos(angle)*radius, y: Math.sin(angle)*radius, angle, radius });
     }
 
+    // mesh — satellites link to their ring neighbours too, not just the hub,
+    // which is what makes it read as a network rather than a spoked wheel
+    if(detail>0.3){
+      ctx.strokeStyle = c(75,58,.14*eMul);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      satellites.forEach((sat,i)=>{
+        const next = satellites[(i+1)%N];
+        ctx.moveTo(sat.x,sat.y);
+        ctx.lineTo(next.x,next.y);
+      });
+      ctx.stroke();
+    }
+
     // spokes + travelling pulses
     satellites.forEach((sat,i)=>{
       if(detail>0.3){
-        ctx.strokeStyle = c(60,55,.16*eMul);
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = c(65,58,.22*eMul);
+        ctx.lineWidth = 1.1;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(sat.x,sat.y); ctx.stroke();
       }
       const local = (phase + i/N) % 1;
@@ -289,6 +294,36 @@
       const arrival = Math.pow(Math.max(0, Math.sin(local*Math.PI)), 6);
       glowDot(ctx, sat.x, sat.y, detail>0.45?4.6:3.6, (0.35+arrival*0.65)*eMul);
     });
+
+    // starburst flare — the hub's own signature, not just a bright dot
+    if(detail>0.4){
+      const flareLen = R*(0.30+breathe*0.06);
+      for(let ax=0; ax<2; ax++){
+        ctx.save();
+        if(ax) ctx.rotate(Math.PI/2);
+        ctx.scale(1, 0.085);
+        const fg = ctx.createRadialGradient(0,0,0,0,0,flareLen);
+        fg.addColorStop(0, c(30,92,.55*eMul));
+        fg.addColorStop(1, c(80,55,0));
+        ctx.fillStyle = fg;
+        ctx.beginPath(); ctx.arc(0,0,flareLen,0,TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.rotate(Math.PI/4);
+      for(let ax=0; ax<2; ax++){
+        ctx.save();
+        if(ax) ctx.rotate(Math.PI/2);
+        ctx.scale(1, 0.05);
+        const fg = ctx.createRadialGradient(0,0,0,0,0,flareLen*0.7);
+        fg.addColorStop(0, c(30,92,.35*eMul));
+        fg.addColorStop(1, c(80,55,0));
+        ctx.fillStyle = fg;
+        ctx.beginPath(); ctx.arc(0,0,flareLen*0.7,0,TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
 
     const coreR = R*(0.14+breathe*0.05*cur.breath);
     const core = ctx.createRadialGradient(0,0,0,0,0,coreR*3.2);
