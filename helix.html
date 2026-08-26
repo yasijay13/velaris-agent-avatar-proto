@@ -179,7 +179,7 @@
 </div>
 
 <footer>
-  Both strands are the same curve, <code>x=cos(θ), y=sin(θ·wind+φ), z=sin(θ)</code>, one with <code>φ=0</code> and one with <code>φ=π</code> — a single formula, not two authored shapes. The whole ribbon turns by <code>phase·τ</code> added into θ, an integer multiple of the loop so it closes exactly. Energy nodes advance along θ on their own schedule, independent of the ribbon's turn, which is why they slide along the strand instead of riding fixed to it. <code>jitter</code> (failed only) perturbs each vertex off its curve.
+Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin(θ)</code> — one with <code>φ=0</code> and one with <code>φ=π</code>, a single formula, not two authored shapes. The whole ribbon then turns by <code>phase·τ</code> as a genuine rotation of the built 3D points, not a shift of θ itself — folding it into θ instead would just reparametrize the same closed loop and never visibly move, since every frame still traces the full curve. Energy nodes advance along θ on their own schedule, independent of that turn, which is why they slide along the strand rather than riding fixed to it. <code>jitter</code> (failed only) perturbs each vertex off its curve.
 </footer>
 
 </div>
@@ -216,12 +216,16 @@
   function hash(seed){ const v = Math.sin(seed*91.345)*43758.5453; return v - Math.floor(v) - 0.5; }
   function c(s,l,a){ return `hsla(${cur.hue.toFixed(0)},${s}%,${l}%,${Math.max(0,Math.min(1,a)).toFixed(3)})`; }
 
+  // The shape (theta, phi) and the whole-ribbon spin (rot) are kept separate on purpose:
+  // folding rot into theta before tracing the full 0..τ range just reparametrizes the same
+  // closed curve — visually identical every frame. Rotating the already-built 3D point is
+  // what actually turns the ribbon.
   function strandPoint(theta, phi, rx, ry, rot){
-    const t = theta + rot;
-    const x = Math.cos(t)*rx;
-    const y = Math.sin(t*WIND + phi)*ry;
-    const z = Math.sin(t);
-    return { x, y, z };
+    const x0 = Math.cos(theta), z0 = Math.sin(theta); // unit circle, rotation preserves magnitude
+    const y0 = Math.sin(theta*WIND + phi);
+    const xr = x0*Math.cos(rot) + z0*Math.sin(rot);
+    const zr = -x0*Math.sin(rot) + z0*Math.cos(rot);
+    return { x: xr*rx, y: y0*ry, z: zr }; // z stays -1..1, used only for depth shading
   }
 
   const dpr = Math.min(window.devicePixelRatio||1,2);
