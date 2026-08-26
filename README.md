@@ -10,7 +10,7 @@ States: `paused` · `idle / armed` · `trigger` · `working` · `needs review` �
 
 | | |
 |---|---|
-| [**Orbit**](https://yasijay13.github.io/velaris-agent-avatar-proto/orbit.html) <br> Rings and orbiting particles around a glowing core. | ![orbit avatar preview](screenshot-orbit.png) |
+| [**Pulse core**](https://yasijay13.github.io/velaris-agent-avatar-proto/orbit.html) <br> Scaffold rings, tilted orbital planes and a rotating octagon core housing, all driven by one periodic phase. | ![pulse core avatar preview](screenshot-orbit.png) |
 | [**Particle surface**](https://yasijay13.github.io/velaris-agent-avatar-proto/particle-surface.html) <br> A 12×12 particle lattice deforming as one continuous surface via a periodic wave field, lit by an independently travelling brightness hotspot. | ![particle surface avatar preview](screenshot-surface.png) |
 
 Landing page with both links: https://yasijay13.github.io/velaris-agent-avatar-proto/

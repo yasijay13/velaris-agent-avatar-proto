@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Velaris agent avatar — state model prototype</title>
+<title>Velaris agent avatar — pulse core state model</title>
 <style>
   :root{
     --ink:#0F1533;
@@ -33,7 +33,7 @@
   .back{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:500;color:var(--ink-2);text-decoration:none;margin-bottom:10px}
   .back:hover{color:var(--indigo)}
   h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 4px}
-  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:64ch}
+  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:68ch}
 
   .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
   @media (max-width:860px){.grid{grid-template-columns:1fr}}
@@ -49,13 +49,13 @@
     transition:background .35s ease;
   }
   .bigbox[data-bg="light"]{background:linear-gradient(160deg,#DCE8FB,#EEF2FD)}
-  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#151A3A,#080B1C)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#04141a,#00060a)}
   .sizes{display:flex;gap:22px;align-items:flex-end}
   .sizecol{text-align:center}
   .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
   .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
   .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#DCE8FB,#EEF2FD)}
-  .chip-holder[data-bg="dark"]{background:#0D1128}
+  .chip-holder[data-bg="dark"]{background:#00060a}
 
   /* status line */
   .status{
@@ -121,8 +121,8 @@
 
 <header>
   <a class="back" href="index.html">← All avatars</a>
-  <h1>Agent avatar as a state machine, not a recording</h1>
-  <p>Same renderer, seven agent states, continuous parameters. Every visual property tweens toward a target rather than cutting, which is what reads as alive. Run a command to see the trigger → working → resolve sequence.</p>
+  <h1>Pulse core avatar as a state machine</h1>
+  <p>Concentric scaffold rings, three tilted orbital planes, coherent radial pulse waves and a rotating octagon core housing — all a function of one periodic phase, mathematically seamless on a 3-second loop. State controls playback speed, scale, colour and intensity; only <b>Failed</b> perturbs the geometry itself.</p>
 </header>
 
 <div class="grid">
@@ -130,18 +130,18 @@
   <div class="panel">
     <h2>Render</h2>
     <div class="stage">
-      <div class="bigbox" id="bigbox" data-bg="light"><canvas id="c-big" width="240" height="240" style="width:240px;height:240px"></canvas></div>
+      <div class="bigbox" id="bigbox" data-bg="dark"><canvas id="c-big" width="240" height="240" style="width:240px;height:240px"></canvas></div>
       <div class="sizes">
         <div class="sizecol">
-          <div class="chip-holder" id="h64" data-bg="light" style="width:80px;height:80px"><canvas id="c-64" width="64" height="64" style="width:64px;height:64px"></canvas></div>
+          <div class="chip-holder" id="h64" data-bg="dark" style="width:80px;height:80px"><canvas id="c-64" width="64" height="64" style="width:64px;height:64px"></canvas></div>
           <span class="cap">64px</span>
         </div>
         <div class="sizecol">
-          <div class="chip-holder" id="h40" data-bg="light" style="width:56px;height:56px"><canvas id="c-40" width="40" height="40" style="width:40px;height:40px"></canvas></div>
+          <div class="chip-holder" id="h40" data-bg="dark" style="width:56px;height:56px"><canvas id="c-40" width="40" height="40" style="width:40px;height:40px"></canvas></div>
           <span class="cap">40px</span>
         </div>
         <div class="sizecol">
-          <div class="chip-holder" id="h24" data-bg="light" style="width:40px;height:40px"><canvas id="c-24" width="24" height="24" style="width:24px;height:24px"></canvas></div>
+          <div class="chip-holder" id="h24" data-bg="dark" style="width:40px;height:40px"><canvas id="c-24" width="24" height="24" style="width:24px;height:24px"></canvas></div>
           <span class="cap">24px</span>
         </div>
       </div>
@@ -165,8 +165,8 @@
     </div>
 
     <div class="toggle">
-      <button id="bgLight" aria-pressed="true">Light card</button>
-      <button id="bgDark" aria-pressed="false">Dark card</button>
+      <button id="bgLight" aria-pressed="false">Light card</button>
+      <button id="bgDark" aria-pressed="true">Dark card</button>
     </div>
   </div>
 
@@ -183,7 +183,7 @@
 </div>
 
 <footer>
-  Parameters are the contract between product and motion design. Engineering sets <code>avatar.setState(name)</code> from the agent run lifecycle; the renderer owns easing and never snaps. Adding a state means adding a row to the target table, not commissioning a new video.
+  <code>speed</code> scales how fast the shared 3-second phase advances — the geometry itself never changes shape, only how quickly it plays, so the loop stays seamless at any state. <code>spread</code> is a uniform scale over every radius (rings, orbital planes, spokes, core housing) so proportions never distort. <code>energy</code> scales opacity and glow across the whole piece. <code>breath</code> is the amplitude of the core's pulse. <code>hue</code> recolours the whole mark from a single value — everything here is drawn from <code>hsla()</code>, nothing is a hardcoded colour. <code>jitter</code> (failed only) is the one parameter that touches geometry: it displaces ring radii, orbital nodes and the core housing off their mathematical positions — a machine coming apart, not just dimming.
 </footer>
 
 </div>
@@ -193,35 +193,71 @@
   "use strict";
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const TAU = Math.PI * 2;
+  const LOOP_MS = 3000;
 
   // ---- State targets. This table IS the design contract. ----
-  // energy   0..1  core brightness + scale
-  // spin     0..1  orbital angular velocity
-  // orbits   int   number of visible orbital particles
-  // rings    int   concentric ring count
-  // spread   0..1  orbit radius (contracted = focused, wide = scanning)
-  // jitter   0..1  instability of particle paths
-  // hue      deg   base colour
-  // breath   0..1  amplitude of the idle breathing cycle
+  // energy   0..1  overall opacity / glow ceiling
+  // speed    0..3  playback rate of the shared, still-seamless 3s phase
+  // spread   0..1  uniform scale over every radius in the piece
+  // jitter   0..1  geometric displacement — reserved for "failed"
+  // hue      deg   base colour (everything is hsla, nothing hardcoded)
+  // breath   0..1  amplitude of the core's pulse
   const STATES = {
-    paused:  { energy:0.12, spin:0.04, orbits:3, rings:2, spread:0.45, jitter:0.00, hue:225, sat:0.10, breath:0.15, label:"Paused" },
-    idle:    { energy:0.34, spin:0.20, orbits:5, rings:3, spread:0.62, jitter:0.02, hue:243, sat:0.72, breath:1.00, label:"Idle / armed" },
-    trigger: { energy:1.00, spin:0.55, orbits:7, rings:4, spread:0.95, jitter:0.10, hue:243, sat:0.95, breath:0.20, label:"Triggered" },
-    working: { energy:0.78, spin:1.00, orbits:9, rings:4, spread:0.55, jitter:0.06, hue:238, sat:0.92, breath:0.30, label:"Working" },
-    review:  { energy:0.50, spin:0.12, orbits:4, rings:3, spread:0.70, jitter:0.03, hue:38,  sat:0.90, breath:0.85, label:"Needs review" },
-    success: { energy:0.88, spin:0.30, orbits:6, rings:3, spread:0.80, jitter:0.00, hue:162, sat:0.85, breath:0.45, label:"Succeeded" },
-    failed:  { energy:0.60, spin:0.16, orbits:4, rings:2, spread:0.58, jitter:0.55, hue:352, sat:0.85, breath:0.60, label:"Failed" }
+    paused:  { energy:0.16, speed:0.10, spread:0.55, jitter:0.00, hue:190, breath:0.15, label:"Paused" },
+    idle:    { energy:0.62, speed:0.55, spread:0.85, jitter:0.00, hue:190, breath:1.00, label:"Idle / armed" },
+    trigger: { energy:1.00, speed:0.90, spread:1.00, jitter:0.00, hue:190, breath:0.30, label:"Triggered" },
+    working: { energy:0.92, speed:1.45, spread:0.90, jitter:0.00, hue:196, breath:0.35, label:"Working" },
+    review:  { energy:0.55, speed:0.40, spread:0.75, jitter:0.00, hue:44,  breath:0.85, label:"Needs review" },
+    success: { energy:0.90, speed:0.60, spread:0.95, jitter:0.00, hue:152, breath:0.45, label:"Succeeded" },
+    failed:  { energy:0.62, speed:0.50, spread:0.80, jitter:0.85, hue:352, breath:0.60, label:"Failed" }
   };
 
-  // Per-parameter approach rate. Slower = heavier, more physical.
-  const RATE = { energy:5.5, spin:2.4, orbits:3.5, rings:3.0, spread:3.2, jitter:4.5, hue:3.0, sat:3.5, breath:2.5 };
+  const RATE = { energy:5.0, speed:3.0, spread:3.2, jitter:5.0, hue:3.0, breath:2.5 };
 
   const cur = Object.assign({}, STATES.idle);
   delete cur.label;
   let target = STATES.idle;
-  let stateName = "idle";
   let stateAt = performance.now();
   let queue = [];
+  let clock = 0;          // ms, advances by dt*speed — independent of wall clock
+  let lastTickT = performance.now();
+
+  function hash(seed){ const v = Math.sin(seed*91.345)*43758.5453; return v - Math.floor(v) - 0.5; } // -0.5..0.5, deterministic
+  function c(s,l,a){ return `hsla(${cur.hue.toFixed(0)},${s}%,${l}%,${Math.max(0,Math.min(1,a)).toFixed(3)})`; }
+  function cs(s,l){ return `hsl(${cur.hue.toFixed(0)},${s}%,${l}%)`; }
+
+  function ellipsePoint(cx,cy,rx,ry,rotation,angle){
+    const x = rx*Math.cos(angle), y = ry*Math.sin(angle);
+    const cr = Math.cos(rotation), sr = Math.sin(rotation);
+    return { x: cx + x*cr - y*sr, y: cy + x*sr + y*cr };
+  }
+
+  function glowDot(ctx, x, y, radius, intensity, eMul){
+    intensity = Math.max(0, Math.min(1, intensity * eMul));
+    const glow = ctx.createRadialGradient(x,y,0,x,y,radius*4.5);
+    glow.addColorStop(0,    c(20, 97, intensity));
+    glow.addColorStop(.13,  c(85, 78, .94*intensity));
+    glow.addColorStop(.42,  c(100, 55, .32*intensity));
+    glow.addColorStop(1,    c(100, 50, 0));
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(x,y,radius*4.5,0,TAU); ctx.fill();
+    ctx.fillStyle = c(20, 96, intensity);
+    ctx.beginPath(); ctx.arc(x,y,Math.max(.48,radius*.42),0,TAU); ctx.fill();
+  }
+
+  function strokeEllipse(ctx,cx,cy,rx,ry,rotation,alpha,width,dash){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(rotation);
+    ctx.strokeStyle = c(100, 65, alpha);
+    ctx.lineWidth = width;
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    ctx.ellipse(0,0,Math.max(0.1,rx),Math.max(0.1,ry),0,0,TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // ---- Canvases ----
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -230,151 +266,231 @@
     const cssW = el.width, cssH = el.height;
     el.width = cssW * dpr; el.height = cssH * dpr;
     const ctx = el.getContext("2d");
-    return { ctx, size: cssW, dpr };
+    return { ctx, size: cssW };
   });
 
-  function hsl(h, s, l, a){ return `hsla(${h.toFixed(0)},${(s*100).toFixed(0)}%,${(l*100).toFixed(0)}%,${a.toFixed(3)})`; }
-
-  function draw(view, t){
+  function draw(view, phase){
     const { ctx, size } = view;
     const S = size * dpr;
-    ctx.clearRect(0,0,S,S);
-    ctx.save();
-    ctx.translate(S/2, S/2);
+    const s = S / 512;
+    const cx = 256, cy = 256;
+    const a = phase * TAU;
+    const detail = size >= 140 ? 1 : (size >= 56 ? 0.6 : 0.3);
 
-    const R = S * 0.42;
-    const detail = size >= 56 ? 1 : (size >= 36 ? 0.6 : 0.3); // simplify at small sizes
-    const breathe = 1 + Math.sin(t * 0.0016) * 0.055 * cur.breath;
-    const e = cur.energy;
-    const h = cur.hue, sat = cur.sat;
+    ctx.setTransform(s,0,0,s,0,0);
+    ctx.clearRect(0,0,512,512);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalCompositeOperation = "lighter";
 
-    // Outer bloom
-    const bloomR = R * (0.92 + e * 0.35) * breathe;
-    const bloom = ctx.createRadialGradient(0,0,0,0,0,bloomR);
-    bloom.addColorStop(0,   hsl(h, sat, 0.62, 0.42 * e));
-    bloom.addColorStop(0.45,hsl(h, sat, 0.55, 0.16 * e));
-    bloom.addColorStop(1,   hsl(h, sat, 0.50, 0));
-    ctx.fillStyle = bloom;
-    ctx.beginPath(); ctx.arc(0,0,bloomR,0,Math.PI*2); ctx.fill();
+    const eMul = 0.30 + cur.energy*0.85;   // opacity/glow ceiling
+    const sp = 0.55 + cur.spread*0.55;     // uniform radius scale
+    const J = cur.jitter;
 
-    // Concentric rings
-    const ringN = Math.round(cur.rings);
-    ctx.lineWidth = Math.max(1, S * 0.006);
-    for(let i=0;i<ringN;i++){
-      const f = (i+1)/(ringN+0.4);
-      const rr = R * f * (0.55 + cur.spread*0.6) * breathe;
-      const phase = t*0.0006*cur.spin*(i%2?-1:1) + i*1.7;
-      const arc = detail < 0.5 ? Math.PI*2 : (1.15 + Math.sin(phase)*0.5) * Math.PI;
-      ctx.strokeStyle = hsl(h, sat, 0.58, (0.20 + e*0.42) * (1 - i*0.12));
-      ctx.beginPath();
-      ctx.arc(0,0,rr, phase, phase + arc);
-      ctx.stroke();
-    }
+    // Atmospheric field — deliberately restrained so the silhouette survives small.
+    const field = ctx.createRadialGradient(cx,cy,5,cx,cy,220*sp);
+    field.addColorStop(0,   c(85, 80, .13*eMul));
+    field.addColorStop(.32, c(100, 55, .045*eMul));
+    field.addColorStop(1,   c(100, 50, 0));
+    ctx.fillStyle = field;
+    ctx.fillRect(28,28,456,456);
 
-    // Orbiting particles
-    if(detail > 0.35){
-      const n = Math.round(cur.orbits);
-      for(let i=0;i<n;i++){
-        const a0 = (i/n) * Math.PI*2;
-        const spd = t * 0.0011 * cur.spin * (1 + (i%3)*0.22);
-        const a = a0 + spd;
-        const tilt = 0.42 + (i%4)*0.14;
-        const orb = R * (0.72 + cur.spread*0.45) * breathe;
-        const jx = cur.jitter ? Math.sin(t*0.011 + i*3.1) * cur.jitter * R * 0.16 : 0;
-        const jy = cur.jitter ? Math.cos(t*0.013 + i*2.3) * cur.jitter * R * 0.16 : 0;
-        const x = Math.cos(a) * orb + jx;
-        const y = Math.sin(a) * orb * tilt + jy;
-        const depth = 0.5 + Math.sin(a)*0.5;
-        const pr = Math.max(0.8, S*0.021) * (0.6 + depth*0.7);
-        const g = ctx.createRadialGradient(x,y,0,x,y,pr*3);
-        g.addColorStop(0, hsl(h, sat, 0.82, (0.55 + e*0.45) * (0.45+depth*0.55)));
-        g.addColorStop(1, hsl(h, sat, 0.60, 0));
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(x,y,pr*3,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle = hsl(h, Math.min(1,sat+0.1), 0.90, 0.5 + e*0.5);
-        ctx.beginPath(); ctx.arc(x,y,pr*0.55,0,Math.PI*2); ctx.fill();
+    // Fine polar spokes establish the radar/geometric language.
+    if(detail > 0.45){
+      ctx.strokeStyle = c(90, 58, .12*eMul);
+      ctx.lineWidth = 1.1;
+      for(let i=0;i<12;i++){
+        const angle = i*TAU/12 + .032*Math.sin(a) + hash(i+200)*J*0.4;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(angle)*44*sp, cy+Math.sin(angle)*44*sp);
+        ctx.lineTo(cx+Math.cos(angle)*177*sp, cy+Math.sin(angle)*177*sp);
+        ctx.stroke();
       }
     }
 
-    // Core
-    const coreR = R * (0.16 + e*0.14) * breathe;
-    const core = ctx.createRadialGradient(0,0,0,0,0,coreR*3.4);
-    core.addColorStop(0,    hsl(h, Math.min(1,sat*0.5), 0.99, 0.55 + e*0.45));
-    core.addColorStop(0.28, hsl(h, sat, 0.72, 0.42 + e*0.5));
-    core.addColorStop(1,    hsl(h, sat, 0.55, 0));
-    ctx.fillStyle = core;
-    ctx.beginPath(); ctx.arc(0,0,coreR*3.4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = hsl(h, Math.min(1,sat*0.35), 1, 0.65 + e*0.35);
-    ctx.beginPath(); ctx.arc(0,0,coreR*0.72,0,Math.PI*2); ctx.fill();
+    // Static scaffold rings give the mark a stable, recognisable silhouette.
+    [50,76,106,140,176].forEach((r,i)=>{
+      const rr = r*sp*(1 + hash(i+300)*J*0.10);
+      ctx.strokeStyle = c(96, 55, [.44,.25,.31,.18,.22][i]*eMul);
+      ctx.lineWidth = i===0 ? 2.3 : 1.15;
+      ctx.setLineDash(i===3 ? [2.5,7] : []);
+      ctx.lineDashOffset = -phase*(i%2?24:-18);
+      ctx.beginPath();
+      ctx.arc(cx,cy,rr,0,TAU);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
 
-    ctx.restore();
+    // Three coherent radial waves: each travels out, eases, then returns.
+    if(detail > 0.3){
+      for(let i=0;i<3;i++){
+        const local = (phase + i/3) % 1;
+        const outAndBack = .5 - .5*Math.cos(local*TAU);
+        const smooth = outAndBack*outAndBack*(3-2*outAndBack);
+        const radius = (55 + 122*smooth)*sp;
+        const energyW = Math.pow(Math.sin(local*Math.PI), .75);
+        ctx.strokeStyle = c(100, 68, (.08+energyW*.32)*eMul);
+        ctx.lineWidth = 1.2+energyW*1.6;
+        ctx.shadowColor = cs(95,55);
+        ctx.shadowBlur = 5+energyW*12;
+        ctx.beginPath();
+        ctx.arc(cx,cy,radius,0,TAU);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    // Tilted orbital planes — full rotations are integer multiples of the cycle.
+    const planes = [
+      { rx:186*sp, ry:83*sp,  rot:-.29+.11*Math.sin(a), speed:1,  offset:.08 },
+      { rx:184*sp, ry:104*sp, rot:.53-.09*Math.sin(a),  speed:-1, offset:.39 },
+      { rx:164*sp, ry:58*sp,  rot:1.42+.08*Math.cos(a), speed:2,  offset:.67 }
+    ];
+    planes.forEach((plane,index)=>{
+      if(detail>0.3) strokeEllipse(ctx,cx,cy,plane.rx,plane.ry,plane.rot,(.2+index*.04)*eMul,1.15,index===1?[3,6]:null);
+      const nodeAngle = a*plane.speed + plane.offset*TAU + hash(index+400)*J*0.5;
+      const p = ellipsePoint(cx,cy,plane.rx,plane.ry,plane.rot,nodeAngle);
+      glowDot(ctx, p.x, p.y, detail>0.45?5.4:4.6, .76+.24*Math.cos(a+index*2.1), eMul);
+      if(detail>0.3){
+        const tail = ellipsePoint(cx,cy,plane.rx,plane.ry,plane.rot,nodeAngle-.12*Math.sign(plane.speed));
+        ctx.strokeStyle = c(100, 66, (.27+index*.06)*eMul);
+        ctx.lineWidth = 2.1;
+        ctx.beginPath();
+        ctx.moveTo(tail.x,tail.y);
+        ctx.lineTo(p.x,p.y);
+        ctx.stroke();
+      }
+    });
+
+    // Evenly spaced micro-nodes rotate once per cycle — spacing never changes at the seam.
+    if(detail>0.45){
+      for(let i=0;i<16;i++){
+        const angle = i*TAU/16 - a + hash(i+500)*J*0.35;
+        const radius = (i%2 ? 140 : 106) * sp * (1+hash(i+520)*J*0.15);
+        const x = cx+Math.cos(angle)*radius, y = cy+Math.sin(angle)*radius;
+        const flicker = .42 + .35*(.5+.5*Math.cos(a*2+i*1.7));
+        glowDot(ctx, x, y, i%4===0?2.6:1.45, flicker, eMul);
+      }
+    }
+
+    // Four anchor nodes keep the motif legible when the avatar is very small.
+    for(let i=0;i<4;i++){
+      const angle = i*TAU/4 + a*.5 + hash(i+600)*J*0.4;
+      const radius = 174*sp*(1+hash(i+610)*J*0.12);
+      glowDot(ctx, cx+Math.cos(angle)*radius, cy+Math.sin(angle)*radius, detail>0.45?6.2:4.8, .72, eMul);
+    }
+
+    // Core housing — a rotating octagon, broken off-radius when jitter is active.
+    if(detail>0.45){
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate(-a);
+      ctx.strokeStyle = c(100, 73, .78*eMul);
+      ctx.lineWidth = 2;
+      ctx.shadowColor = cs(95,55);
+      ctx.shadowBlur = 13;
+      ctx.beginPath();
+      for(let i=0;i<8;i++){
+        const angle = -Math.PI/2 + i*TAU/8;
+        const radius = (i%2 ? 32 : 39) * sp * (1+hash(i+700)*J*0.45);
+        const x = Math.cos(angle)*radius, y = Math.sin(angle)*radius;
+        i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const breathe = .5 + .5*Math.cos(a);
+    const coreRadius = (14 + breathe*3.8*cur.breath) * sp;
+    const core = ctx.createRadialGradient(cx,cy,0,cx,cy,60*sp);
+    core.addColorStop(0,    c(0, 100, 1));
+    core.addColorStop(.1,   c(90, 85, 1));
+    core.addColorStop(.27,  c(95, 52, .8+breathe*.18));
+    core.addColorStop(.55,  c(100, 50, .23*eMul));
+    core.addColorStop(1,    c(100, 50, 0));
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(cx,cy,60*sp,0,TAU); ctx.fill();
+    ctx.fillStyle = c(35, 97, 1);
+    ctx.shadowColor = cs(90,78);
+    ctx.shadowBlur = 24;
+    ctx.beginPath(); ctx.arc(cx,cy,coreRadius,0,TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // A rotating scan arc adds direction without muddying the centre.
+    if(detail>0.45){
+      ctx.strokeStyle = c(90, 81, .82*eMul);
+      ctx.lineWidth = 3.2;
+      ctx.shadowColor = cs(93,52);
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(cx,cy,76*sp,a-.42,a+.42);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.globalCompositeOperation = "source-over";
   }
 
   // ---- Loop ----
-  let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsShown = 0;
+  let fpsAcc = 0, fpsN = 0;
 
   function tick(now){
-    const dt = Math.min(0.05, (now - last)/1000);
-    last = now;
+    const dt = Math.min(0.05, (now-lastTickT)/1000);
+    lastTickT = now;
 
     for(const k in RATE){
-      const k2 = Math.min(1, dt * RATE[k] * (reduced ? 4 : 1));
-      if(k === "hue"){
+      const k2 = Math.min(1, dt*RATE[k]*(reduced?4:1));
+      if(k==="hue"){
         let d = target.hue - cur.hue;
-        if(d > 180) d -= 360; if(d < -180) d += 360;
-        cur.hue = (cur.hue + d * k2 + 360) % 360;
+        if(d>180) d-=360; if(d<-180) d+=360;
+        cur.hue = (cur.hue + d*k2 + 360) % 360;
       } else {
-        cur[k] += (target[k] - cur[k]) * k2;
+        cur[k] += (target[k]-cur[k])*k2;
       }
     }
+    clock += dt*1000*cur.speed;
 
-    // queued transitions
-    if(queue.length && now >= queue[0].at){ const q = queue.shift(); apply(q.state, q.note); }
+    if(queue.length && now >= queue[0].at){ const q=queue.shift(); apply(q.state,q.note); }
 
-    for(const v of views) draw(v, now);
+    const phase = ((clock % LOOP_MS) + LOOP_MS) % LOOP_MS / LOOP_MS;
+    for(const v of views) draw(v, phase);
 
     fpsAcc += 1/dt; fpsN++;
-    if(fpsN >= 30){ fpsShown = Math.round(fpsAcc/fpsN); fpsN = 0; fpsAcc = 0; document.getElementById("b-fps").textContent = fpsShown; }
-    document.getElementById("b-since").textContent = ((now - stateAt)/1000).toFixed(1) + "s";
+    if(fpsN>=30){ document.getElementById("b-fps").textContent = Math.round(fpsAcc/fpsN); fpsN=0; fpsAcc=0; }
+    document.getElementById("b-since").textContent = ((now-stateAt)/1000).toFixed(1)+"s";
     renderParams();
     requestAnimationFrame(tick);
   }
 
-  // ---- Params readout ----
   const paramsEl = document.getElementById("params");
-  const keys = ["energy","spin","orbits","rings","spread","jitter","hue","sat"];
-  paramsEl.innerHTML = keys.map(k =>
-    `<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`
-  ).join("");
-
-  let paintN = 0;
+  const keys = ["energy","speed","spread","jitter","hue","breath"];
+  paramsEl.innerHTML = keys.map(k => `<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
+  let paintN=0;
   function renderParams(){
     if(paintN++ % 4) return;
     for(const k of keys){
       const v = cur[k];
-      const norm = k==="hue" ? v/360 : (k==="orbits"||k==="rings") ? v/9 : v;
+      const norm = k==="hue" ? v/360 : (k==="speed" ? v/3 : v);
       document.getElementById("bar-"+k).style.width = (Math.max(0,Math.min(1,norm))*100).toFixed(0)+"%";
-      document.getElementById("val-"+k).textContent = (k==="orbits"||k==="rings") ? v.toFixed(1) : (k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2));
+      document.getElementById("val-"+k).textContent = k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2);
     }
   }
 
-  // ---- State control ----
   const logEl = document.getElementById("log");
   function log(state, note){
     const li = document.createElement("li");
     const ts = new Date().toLocaleTimeString([], {hour12:false});
-    li.innerHTML = `<span class="t">${ts}</span> <span class="s">${state}</span>${note ? " " + note : ""}`;
+    li.innerHTML = `<span class="t">${ts}</span> <span class="s">${state}</span>${note?" "+note:""}`;
     logEl.prepend(li);
-    while(logEl.children.length > 40) logEl.lastChild.remove();
+    while(logEl.children.length>40) logEl.lastChild.remove();
   }
 
   function apply(name, note){
     if(!STATES[name]) return;
-    target = STATES[name];
-    stateName = name;
-    stateAt = performance.now();
+    target = STATES[name]; stateAt = performance.now();
     document.getElementById("b-state").textContent = name;
-    for(const b of document.querySelectorAll("#states button")) b.setAttribute("aria-pressed", String(b.dataset.s === name));
+    for(const b of document.querySelectorAll("#states button")) b.setAttribute("aria-pressed", String(b.dataset.s===name));
     log(name, note);
   }
 
@@ -382,35 +498,33 @@
   for(const [k,v] of Object.entries(STATES)){
     const b = document.createElement("button");
     b.textContent = v.label; b.dataset.s = k;
-    b.setAttribute("aria-pressed", String(k === "idle"));
-    b.addEventListener("click", () => { queue = []; apply(k, "(manual)"); });
+    b.setAttribute("aria-pressed", String(k==="idle"));
+    b.addEventListener("click", () => { queue=[]; apply(k,"(manual)"); });
     statesEl.append(b);
   }
 
-  // ---- Command sequence: this is the "someone commands it, it reacts" path ----
   function runCommand(text){
     queue = [];
     const now = performance.now();
     const label = text ? `"${text.slice(0,34)}"` : "";
     apply("trigger", label);
-    queue.push({ at: now + 520,  state:"working", note:"run started" });
+    queue.push({ at: now+520, state:"working", note:"run started" });
     const ok = Math.random() > 0.28;
     const dur = 1600 + Math.random()*1400;
     if(ok){
-      queue.push({ at: now + 520 + dur, state:"success", note:"reply drafted" });
-      queue.push({ at: now + 520 + dur + 2200, state:"idle", note:"back to armed" });
+      queue.push({ at: now+520+dur, state:"success", note:"reply drafted" });
+      queue.push({ at: now+520+dur+2200, state:"idle", note:"back to armed" });
     } else {
       const needsReview = Math.random() > 0.5;
-      queue.push({ at: now + 520 + dur, state: needsReview ? "review" : "failed", note: needsReview ? "insufficient context, task created" : "contract terms not found" });
-      queue.push({ at: now + 520 + dur + 3000, state:"idle", note:"back to armed" });
+      queue.push({ at: now+520+dur, state: needsReview?"review":"failed", note: needsReview?"insufficient context, task created":"contract terms not found" });
+      queue.push({ at: now+520+dur+3000, state:"idle", note:"back to armed" });
     }
   }
 
   const input = document.getElementById("cmdInput");
   document.getElementById("cmdRun").addEventListener("click", () => runCommand(input.value.trim()));
-  input.addEventListener("keydown", e => { if(e.key === "Enter") runCommand(input.value.trim()); });
+  input.addEventListener("keydown", e => { if(e.key==="Enter") runCommand(input.value.trim()); });
 
-  // ---- Background toggle ----
   const boxes = ["bigbox","h64","h40","h24"].map(id => document.getElementById(id));
   const bl = document.getElementById("bgLight"), bd = document.getElementById("bgDark");
   function setBg(mode){
