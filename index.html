@@ -25,11 +25,12 @@
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:720px;margin:0 auto;padding:48px 24px}
+  .wrap{max-width:900px;margin:0 auto;padding:48px 24px}
   h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 6px}
   .wrap > p{margin:0 0 28px;color:var(--ink-2);max-width:60ch}
-  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media (max-width:560px){.cards{grid-template-columns:1fr}}
+  .cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media (max-width:760px){.cards{grid-template-columns:1fr 1fr}}
+  @media (max-width:480px){.cards{grid-template-columns:1fr}}
   a.card{
     display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;
     padding:18px;text-decoration:none;color:inherit;transition:border-color .15s ease;
@@ -42,7 +43,7 @@
 <body>
 <div class="wrap">
   <h1>Agent avatar — state model prototypes</h1>
-  <p>Two renderer explorations for the same state contract: paused, idle, trigger, working, review, success, failed.</p>
+  <p>Six renderer explorations for the same state contract: paused, idle, trigger, working, review, success, failed.</p>
   <div class="cards">
     <a class="card" href="orbit.html">
       <h2>Pulse core →</h2>
@@ -51,6 +52,22 @@
     <a class="card" href="particle-surface.html">
       <h2>Particle surface →</h2>
       <p>A deforming particle lattice with a traveling brightness field.</p>
+    </a>
+    <a class="card" href="halo.html">
+      <h2>Halo →</h2>
+      <p>Four rings at independent tilts, slowly precessing in place.</p>
+    </a>
+    <a class="card" href="signal.html">
+      <h2>Signal →</h2>
+      <p>A hub and seven satellites, pulses relayed out along each spoke.</p>
+    </a>
+    <a class="card" href="waveform.html">
+      <h2>Waveform →</h2>
+      <p>A travelling wave folded across six parallel depth layers.</p>
+    </a>
+    <a class="card" href="helix.html">
+      <h2>Helix →</h2>
+      <p>Two interwoven strands from one curve, energy sliding along each.</p>
     </a>
   </div>
 </div>

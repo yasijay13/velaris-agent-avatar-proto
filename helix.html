@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Velaris agent avatar — helix state model</title>
+<style>
+  :root{
+    --ink:#0F1533;
+    --ink-2:#4A5578;
+    --ink-3:#7C87A8;
+    --line:#E3E7F2;
+    --panel:#FFFFFF;
+    --page:#F5F7FC;
+    --indigo:#4F46E5;
+    --indigo-soft:#EEF0FE;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--page);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 64px}
+
+  header{margin-bottom:24px}
+  .back{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:500;color:var(--ink-2);text-decoration:none;margin-bottom:10px}
+  .back:hover{color:var(--indigo)}
+  h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 4px}
+  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:68ch}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .panel h2{font-size:11px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:var(--ink-3);margin:0 0 14px}
+
+  .stage{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .bigbox{
+    width:260px;height:260px;border-radius:12px;flex:none;
+    display:grid;place-items:center;position:relative;overflow:hidden;
+    transition:background .35s ease;
+  }
+  .bigbox[data-bg="light"]{background:linear-gradient(160deg,#FBE9DC,#FDF3EB)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#1a0d02,#0a0501)}
+  .sizes{display:flex;gap:22px;align-items:flex-end}
+  .sizecol{text-align:center}
+  .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
+  .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
+  .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#FBE9DC,#FDF3EB)}
+  .chip-holder[data-bg="dark"]{background:#0a0501}
+
+  .status{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  }
+  .badge{
+    font:11px/1 var(--mono);padding:5px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--ink-2);background:#FAFBFF;
+  }
+  .badge b{color:var(--ink);font-weight:600}
+
+  .states{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  button{
+    font-family:var(--sans);font-size:12.5px;font-weight:500;
+    padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--ink-2);cursor:pointer;text-align:left;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  button:hover{border-color:#C7CFE6;color:var(--ink)}
+  button[aria-pressed="true"]{background:var(--indigo-soft);border-color:#C7C6F7;color:var(--indigo);font-weight:600}
+  button:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+
+  .cmd{display:flex;gap:6px;margin-top:14px}
+  .cmd input{
+    flex:1;min-width:0;font-family:var(--sans);font-size:12.5px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:8px;background:#FAFBFF;color:var(--ink);
+  }
+  .cmd input:focus{outline:2px solid var(--indigo);outline-offset:-1px;background:#fff}
+  .cmd button{flex:none;background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:600}
+  .cmd button:hover{background:#4338CA;color:#fff}
+
+  .toggle{display:flex;gap:6px;margin-top:14px}
+  .toggle button{flex:1;text-align:center}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  td{padding:5px 0;color:var(--ink-2);border-bottom:1px solid #F0F3FA}
+  td:last-child{text-align:right;color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .bar{height:3px;border-radius:2px;background:#EDF0F8;margin-top:3px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--indigo);border-radius:2px;transition:width .12s linear}
+
+  .log{
+    font:11.5px/1.7 var(--mono);color:var(--ink-2);
+    max-height:132px;overflow:auto;margin:0;padding:0;list-style:none;
+  }
+  .log li{padding:2px 0;border-bottom:1px solid #F4F6FC}
+  .log .t{color:var(--ink-3)}
+  .log .s{color:var(--indigo);font-weight:600}
+
+  footer{margin-top:20px;font-size:12px;color:var(--ink-3);line-height:1.6}
+  code{font-family:var(--mono);font-size:11.5px;background:#F0F3FA;padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+  @media (prefers-reduced-motion: reduce){
+    .bigbox,.chip-holder{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="back" href="index.html">← All avatars</a>
+  <h1>Helix avatar as a state machine</h1>
+  <p>Two interwoven strands built from one parametric curve, offset by half a turn, crossing three times per loop. Each vertex's depth sets its size and brightness — a cheap pseudo-3D that still reads as one continuous twisted ribbon. Two energy nodes per strand travel the curve's own parameter independently of the ribbon's rotation.</p>
+</header>
+
+<div class="grid">
+
+  <div class="panel">
+    <h2>Render</h2>
+    <div class="stage">
+      <div class="bigbox" id="bigbox" data-bg="dark"><canvas id="c-big" width="240" height="240" style="width:240px;height:240px"></canvas></div>
+      <div class="sizes">
+        <div class="sizecol">
+          <div class="chip-holder" id="h64" data-bg="dark" style="width:80px;height:80px"><canvas id="c-64" width="64" height="64" style="width:64px;height:64px"></canvas></div>
+          <span class="cap">64px</span>
+        </div>
+        <div class="sizecol">
+          <div class="chip-holder" id="h40" data-bg="dark" style="width:56px;height:56px"><canvas id="c-40" width="40" height="40" style="width:40px;height:40px"></canvas></div>
+          <span class="cap">40px</span>
+        </div>
+        <div class="sizecol">
+          <div class="chip-holder" id="h24" data-bg="dark" style="width:40px;height:40px"><canvas id="c-24" width="24" height="24" style="width:24px;height:24px"></canvas></div>
+          <span class="cap">24px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span class="badge">state <b id="b-state">idle</b></span>
+      <span class="badge">since <b id="b-since">0.0s</b></span>
+      <span class="badge">fps <b id="b-fps">—</b></span>
+      <span class="badge">renderer <b>canvas 2d</b></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Agent state</h2>
+    <div class="states" id="states"></div>
+
+    <div class="cmd">
+      <input id="cmdInput" placeholder="Draft renewal reply for Wflow" aria-label="Command">
+      <button id="cmdRun">Run</button>
+    </div>
+
+    <div class="toggle">
+      <button id="bgLight" aria-pressed="false">Light card</button>
+      <button id="bgDark" aria-pressed="true">Dark card</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Live parameters</h2>
+    <table id="params"></table>
+  </div>
+
+  <div class="panel">
+    <h2>Event log</h2>
+    <ul class="log" id="log"></ul>
+  </div>
+
+</div>
+
+<footer>
+  Both strands are the same curve, <code>x=cos(θ), y=sin(θ·wind+φ), z=sin(θ)</code>, one with <code>φ=0</code> and one with <code>φ=π</code> — a single formula, not two authored shapes. The whole ribbon turns by <code>phase·τ</code> added into θ, an integer multiple of the loop so it closes exactly. Energy nodes advance along θ on their own schedule, independent of the ribbon's turn, which is why they slide along the strand instead of riding fixed to it. <code>jitter</code> (failed only) perturbs each vertex off its curve.
+</footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const TAU = Math.PI*2;
+  const LOOP_MS = 3000;
+  const SEG = 72;
+  const WIND = 3;
+
+  const STATES = {
+    paused:  { energy:0.16, speed:0.12, spread:0.55, jitter:0.00, hue:28, breath:0.15, label:"Paused" },
+    idle:    { energy:0.58, speed:0.35, spread:0.85, jitter:0.00, hue:28, breath:1.00, label:"Idle / armed" },
+    trigger: { energy:1.00, speed:0.65, spread:1.00, jitter:0.00, hue:28, breath:0.30, label:"Triggered" },
+    working: { energy:0.90, speed:1.30, spread:0.90, jitter:0.00, hue:34, breath:0.35, label:"Working" },
+    review:  { energy:0.55, speed:0.30, spread:0.78, jitter:0.00, hue:40, breath:0.80, label:"Needs review" },
+    success: { energy:0.90, speed:0.50, spread:0.95, jitter:0.00, hue:150,breath:0.45, label:"Succeeded" },
+    failed:  { energy:0.62, speed:0.40, spread:0.80, jitter:0.80, hue:352,breath:0.55, label:"Failed" }
+  };
+  const RATE = { energy:5.0, speed:3.0, spread:3.2, jitter:5.0, hue:3.0, breath:2.5 };
+
+  const cur = Object.assign({}, STATES.idle);
+  delete cur.label;
+  let target = STATES.idle;
+  let stateAt = performance.now();
+  let queue = [];
+  let clock = 0;
+  let lastTickT = performance.now();
+
+  function hash(seed){ const v = Math.sin(seed*91.345)*43758.5453; return v - Math.floor(v) - 0.5; }
+  function c(s,l,a){ return `hsla(${cur.hue.toFixed(0)},${s}%,${l}%,${Math.max(0,Math.min(1,a)).toFixed(3)})`; }
+
+  function strandPoint(theta, phi, rx, ry, rot){
+    const t = theta + rot;
+    const x = Math.cos(t)*rx;
+    const y = Math.sin(t*WIND + phi)*ry;
+    const z = Math.sin(t);
+    return { x, y, z };
+  }
+
+  const dpr = Math.min(window.devicePixelRatio||1,2);
+  const views = ["c-big","c-64","c-40","c-24"].map(id=>{
+    const el = document.getElementById(id);
+    const cssW = el.width, cssH = el.height;
+    el.width = cssW*dpr; el.height = cssH*dpr;
+    return { ctx: el.getContext("2d"), size: cssW };
+  });
+
+  function draw(view, phase){
+    const { ctx, size } = view;
+    const S = size*dpr;
+    ctx.clearRect(0,0,S,S);
+    ctx.save();
+    ctx.translate(S/2,S/2);
+    ctx.lineCap = "round";
+    ctx.globalCompositeOperation = "lighter";
+
+    const detail = size>=140?1:(size>=56?0.6:0.3);
+    const rot = phase*TAU; // whole-ribbon turn, integer multiple of the loop
+    const rx = S*0.34*(0.6+cur.spread*0.5);
+    const ry = S*0.20*(0.6+cur.spread*0.5);
+    const eMul = 0.30+cur.energy*0.85;
+    const J = cur.jitter;
+
+    const strands = [0, Math.PI].map((phi, si)=>{
+      const pts = [];
+      for(let i=0;i<=SEG;i++){
+        const theta = (i/SEG)*TAU;
+        const p = strandPoint(theta, phi, rx, ry, rot);
+        const jx = hash(si*100+i+1)*J*S*0.02;
+        const jy = hash(si*100+i+2)*J*S*0.02;
+        pts.push({ x:p.x+jx, y:p.y+jy, z:p.z });
+      }
+      return pts;
+    });
+
+    if(detail>0.3){
+      strands.forEach((pts,si)=>{
+        for(let i=0;i<pts.length-1;i++){
+          const a0=pts[i], a1=pts[i+1];
+          const depth = (a0.z+1)/2; // 0 back .. 1 front
+          const w = (0.9+depth*1.8);
+          const alpha = (0.22+depth*0.55)*eMul;
+          ctx.strokeStyle = c(90, 55+si*8, alpha);
+          ctx.lineWidth = w;
+          ctx.shadowColor = `hsl(${cur.hue.toFixed(0)},90%,55%)`;
+          ctx.shadowBlur = 2+depth*5*eMul;
+          ctx.beginPath();
+          ctx.moveTo(a0.x,a0.y);
+          ctx.lineTo(a1.x,a1.y);
+          ctx.stroke();
+        }
+      });
+      ctx.shadowBlur = 0;
+    }
+
+    // energy nodes: two per strand, advancing along theta independent of the ribbon's turn
+    [0, Math.PI].forEach((phi, si)=>{
+      for(let n=0;n<2;n++){
+        const theta = (n/2)*TAU + phase*TAU*2; // 2 laps per loop, still seamless
+        const p = strandPoint(theta % TAU, phi, rx, ry, rot);
+        const depth = (p.z+1)/2;
+        const inten = (0.55+depth*0.45)*eMul;
+        const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,S*0.045*(0.6+depth*0.6));
+        g.addColorStop(0, c(18,96,inten));
+        g.addColorStop(1, c(85,55,0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x,p.y,S*0.045*(0.6+depth*0.6),0,TAU); ctx.fill();
+        ctx.fillStyle = c(18,96,Math.min(1,inten+0.2));
+        ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(0.8,S*0.010*(0.6+depth*0.6)),0,TAU); ctx.fill();
+      }
+    });
+
+    const breathe = .5+.5*Math.cos(rot);
+    const coreR = S*0.05*(1+breathe*0.25*cur.breath);
+    const core = ctx.createRadialGradient(0,0,0,0,0,coreR*3);
+    core.addColorStop(0, c(10,99,.85*eMul));
+    core.addColorStop(.35, c(70,68,.5*eMul));
+    core.addColorStop(1, c(85,55,0));
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(0,0,coreR*3,0,TAU); ctx.fill();
+    ctx.fillStyle = c(15,97,Math.min(1,.6+eMul*0.4));
+    ctx.beginPath(); ctx.arc(0,0,coreR*0.8,0,TAU); ctx.fill();
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.restore();
+  }
+
+  let fpsAcc=0, fpsN=0;
+  function tick(now){
+    const dt = Math.min(0.05,(now-lastTickT)/1000);
+    lastTickT = now;
+    for(const k in RATE){
+      const k2 = Math.min(1, dt*RATE[k]*(reduced?4:1));
+      if(k==="hue"){
+        let d = target.hue-cur.hue;
+        if(d>180) d-=360; if(d<-180) d+=360;
+        cur.hue = (cur.hue+d*k2+360)%360;
+      } else cur[k] += (target[k]-cur[k])*k2;
+    }
+    clock += dt*1000*cur.speed;
+    if(queue.length && now>=queue[0].at){ const q=queue.shift(); apply(q.state,q.note); }
+    const phase = ((clock%LOOP_MS)+LOOP_MS)%LOOP_MS/LOOP_MS;
+    for(const v of views) draw(v, phase);
+    fpsAcc += 1/dt; fpsN++;
+    if(fpsN>=30){ document.getElementById("b-fps").textContent = Math.round(fpsAcc/fpsN); fpsN=0; fpsAcc=0; }
+    document.getElementById("b-since").textContent = ((now-stateAt)/1000).toFixed(1)+"s";
+    renderParams();
+    requestAnimationFrame(tick);
+  }
+
+  const paramsEl = document.getElementById("params");
+  const keys = ["energy","speed","spread","jitter","hue","breath"];
+  paramsEl.innerHTML = keys.map(k=>`<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
+  let paintN=0;
+  function renderParams(){
+    if(paintN++%4) return;
+    for(const k of keys){
+      const v = cur[k];
+      const norm = k==="hue" ? v/360 : (k==="speed" ? v/3 : v);
+      document.getElementById("bar-"+k).style.width = (Math.max(0,Math.min(1,norm))*100).toFixed(0)+"%";
+      document.getElementById("val-"+k).textContent = k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2);
+    }
+  }
+
+  const logEl = document.getElementById("log");
+  function log(state,note){
+    const li = document.createElement("li");
+    const ts = new Date().toLocaleTimeString([], {hour12:false});
+    li.innerHTML = `<span class="t">${ts}</span> <span class="s">${state}</span>${note?" "+note:""}`;
+    logEl.prepend(li);
+    while(logEl.children.length>40) logEl.lastChild.remove();
+  }
+
+  function apply(name,note){
+    if(!STATES[name]) return;
+    target = STATES[name]; stateAt = performance.now();
+    document.getElementById("b-state").textContent = name;
+    for(const b of document.querySelectorAll("#states button")) b.setAttribute("aria-pressed", String(b.dataset.s===name));
+    log(name,note);
+  }
+
+  const statesEl = document.getElementById("states");
+  for(const [k,v] of Object.entries(STATES)){
+    const b = document.createElement("button");
+    b.textContent = v.label; b.dataset.s = k;
+    b.setAttribute("aria-pressed", String(k==="idle"));
+    b.addEventListener("click", ()=>{ queue=[]; apply(k,"(manual)"); });
+    statesEl.append(b);
+  }
+
+  function runCommand(text){
+    queue = [];
+    const now = performance.now();
+    const label = text ? `"${text.slice(0,34)}"` : "";
+    apply("trigger", label);
+    queue.push({ at: now+520, state:"working", note:"run started" });
+    const ok = Math.random() > 0.28;
+    const dur = 1600+Math.random()*1400;
+    if(ok){
+      queue.push({ at: now+520+dur, state:"success", note:"reply drafted" });
+      queue.push({ at: now+520+dur+2200, state:"idle", note:"back to armed" });
+    } else {
+      const needsReview = Math.random() > 0.5;
+      queue.push({ at: now+520+dur, state: needsReview?"review":"failed", note: needsReview?"insufficient context, task created":"contract terms not found" });
+      queue.push({ at: now+520+dur+3000, state:"idle", note:"back to armed" });
+    }
+  }
+
+  const input = document.getElementById("cmdInput");
+  document.getElementById("cmdRun").addEventListener("click", ()=>runCommand(input.value.trim()));
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter") runCommand(input.value.trim()); });
+
+  const boxes = ["bigbox","h64","h40","h24"].map(id=>document.getElementById(id));
+  const bl = document.getElementById("bgLight"), bd = document.getElementById("bgDark");
+  function setBg(mode){
+    for(const b of boxes) b.dataset.bg = mode;
+    bl.setAttribute("aria-pressed", String(mode==="light"));
+    bd.setAttribute("aria-pressed", String(mode==="dark"));
+  }
+  bl.addEventListener("click", ()=>setBg("light"));
+  bd.addEventListener("click", ()=>setBg("dark"));
+
+  log("idle","renderer mounted");
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
