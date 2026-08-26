@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Helix avatar as a state machine</h1>
-  <p>Two interwoven strands built from one parametric curve, offset by half a turn, crossing three times per loop. Each vertex's depth sets its size and brightness — a cheap pseudo-3D that still reads as one continuous twisted ribbon. Two energy nodes per strand travel the curve's own parameter independently of the ribbon's rotation.</p>
+  <p>Two interwoven strands built from one parametric curve, offset by half a turn, crossing three times per loop, spinning as a genuine 3D rotation rather than a shifted parameter. A travelling bulge rides along each strand's own length, so the tube's thickness breathes as it turns instead of staying a rigid pipe. Two energy nodes per strand slide along the curve independently of both.</p>
 </header>
 
 <div class="grid">
@@ -179,7 +179,7 @@
 </div>
 
 <footer>
-Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin(θ)</code> — one with <code>φ=0</code> and one with <code>φ=π</code>, a single formula, not two authored shapes. The whole ribbon then turns by <code>phase·τ</code> as a genuine rotation of the built 3D points, not a shift of θ itself — folding it into θ instead would just reparametrize the same closed loop and never visibly move, since every frame still traces the full curve. Energy nodes advance along θ on their own schedule, independent of that turn, which is why they slide along the strand rather than riding fixed to it. <code>jitter</code> (failed only) perturbs each vertex off its curve.
+Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin(θ)</code> — one with <code>φ=0</code> and one with <code>φ=π</code>, a single formula, not two authored shapes. The whole ribbon then turns by <code>phase·τ</code> as a genuine rotation of the built 3D points, not a shift of θ itself — folding it into θ instead would just reparametrize the same closed loop and never visibly move, since every frame still traces the full curve. <code>wave</code> adds a second, independent travelling term in θ — a bulge and a 90°-offset pinch — so the tube's radius breathes as it spins rather than staying a rigid pipe. Energy nodes advance along θ on their own schedule too, which is why they slide along the strand rather than riding fixed to it. <code>jitter</code> (failed only) perturbs each vertex off its curve.
 </footer>
 
 </div>
@@ -195,15 +195,15 @@ Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin
   const WIND = 3;
 
   const STATES = {
-    paused:  { energy:0.16, speed:0.12, spread:0.55, jitter:0.00, hue:28, breath:0.15, label:"Paused" },
-    idle:    { energy:0.58, speed:0.35, spread:0.85, jitter:0.00, hue:28, breath:1.00, label:"Idle / armed" },
-    trigger: { energy:1.00, speed:0.65, spread:1.00, jitter:0.00, hue:28, breath:0.30, label:"Triggered" },
-    working: { energy:0.90, speed:1.30, spread:0.90, jitter:0.00, hue:34, breath:0.35, label:"Working" },
-    review:  { energy:0.55, speed:0.30, spread:0.78, jitter:0.00, hue:40, breath:0.80, label:"Needs review" },
-    success: { energy:0.90, speed:0.50, spread:0.95, jitter:0.00, hue:150,breath:0.45, label:"Succeeded" },
-    failed:  { energy:0.62, speed:0.40, spread:0.80, jitter:0.80, hue:352,breath:0.55, label:"Failed" }
+    paused:  { energy:0.16, speed:0.12, spread:0.55, wave:0.10, jitter:0.00, hue:28, breath:0.15, label:"Paused" },
+    idle:    { energy:0.58, speed:0.35, spread:0.85, wave:0.55, jitter:0.00, hue:28, breath:1.00, label:"Idle / armed" },
+    trigger: { energy:1.00, speed:0.65, spread:1.00, wave:0.70, jitter:0.00, hue:28, breath:0.30, label:"Triggered" },
+    working: { energy:0.90, speed:1.30, spread:0.90, wave:0.85, jitter:0.00, hue:34, breath:0.35, label:"Working" },
+    review:  { energy:0.55, speed:0.30, spread:0.78, wave:0.40, jitter:0.00, hue:40, breath:0.80, label:"Needs review" },
+    success: { energy:0.90, speed:0.50, spread:0.95, wave:0.55, jitter:0.00, hue:150,breath:0.45, label:"Succeeded" },
+    failed:  { energy:0.62, speed:0.40, spread:0.80, wave:0.35, jitter:0.80, hue:352,breath:0.55, label:"Failed" }
   };
-  const RATE = { energy:5.0, speed:3.0, spread:3.2, jitter:5.0, hue:3.0, breath:2.5 };
+  const RATE = { energy:5.0, speed:3.0, spread:3.2, wave:3.5, jitter:5.0, hue:3.0, breath:2.5 };
 
   const cur = Object.assign({}, STATES.idle);
   delete cur.label;
@@ -220,12 +220,17 @@ Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin
   // folding rot into theta before tracing the full 0..τ range just reparametrizes the same
   // closed curve — visually identical every frame. Rotating the already-built 3D point is
   // what actually turns the ribbon.
-  function strandPoint(theta, phi, rx, ry, rot){
+  // A travelling bulge/pinch riding along the strand's own length (theta), on top of the
+  // rigid spin — two integer-multiple sine terms, 90° out of phase, so the tube's radius
+  // and its cross-section both breathe as the wave passes through, never just a fixed pipe.
+  function strandPoint(theta, phi, rx, ry, rot, wavePhase, waveAmt){
+    const bulge = 1 + waveAmt*0.35*Math.sin(theta*3 - wavePhase*2);
+    const pinch = 1 + waveAmt*0.25*Math.sin(theta*3 - wavePhase*2 + Math.PI*0.6);
     const x0 = Math.cos(theta), z0 = Math.sin(theta); // unit circle, rotation preserves magnitude
-    const y0 = Math.sin(theta*WIND + phi);
+    const y0 = Math.sin(theta*WIND + phi) * bulge;
     const xr = x0*Math.cos(rot) + z0*Math.sin(rot);
     const zr = -x0*Math.sin(rot) + z0*Math.cos(rot);
-    return { x: xr*rx, y: y0*ry, z: zr }; // z stays -1..1, used only for depth shading
+    return { x: xr*rx*pinch, y: y0*ry, z: zr }; // z stays -1..1, used only for depth shading
   }
 
   const dpr = Math.min(window.devicePixelRatio||1,2);
@@ -256,7 +261,7 @@ Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin
       const pts = [];
       for(let i=0;i<=SEG;i++){
         const theta = (i/SEG)*TAU;
-        const p = strandPoint(theta, phi, rx, ry, rot);
+        const p = strandPoint(theta, phi, rx, ry, rot, rot, cur.wave);
         const jx = hash(si*100+i+1)*J*S*0.02;
         const jy = hash(si*100+i+2)*J*S*0.02;
         pts.push({ x:p.x+jx, y:p.y+jy, z:p.z });
@@ -288,7 +293,7 @@ Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin
     [0, Math.PI].forEach((phi, si)=>{
       for(let n=0;n<2;n++){
         const theta = (n/2)*TAU + phase*TAU*2; // 2 laps per loop, still seamless
-        const p = strandPoint(theta % TAU, phi, rx, ry, rot);
+        const p = strandPoint(theta % TAU, phi, rx, ry, rot, rot, cur.wave);
         const depth = (p.z+1)/2;
         const inten = (0.55+depth*0.45)*eMul;
         const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,S*0.045*(0.6+depth*0.6));
@@ -340,7 +345,7 @@ Both strands trace the same curve — <code>x=cos(θ), y=sin(θ·wind+φ), z=sin
   }
 
   const paramsEl = document.getElementById("params");
-  const keys = ["energy","speed","spread","jitter","hue","breath"];
+  const keys = ["energy","speed","spread","wave","jitter","hue","breath"];
   paramsEl.innerHTML = keys.map(k=>`<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
   let paintN=0;
   function renderParams(){
