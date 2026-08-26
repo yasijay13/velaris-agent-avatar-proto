@@ -11,7 +11,7 @@ States: `paused` · `idle / armed` · `trigger` · `working` · `needs review` �
 | | |
 |---|---|
 | [**Orbit**](https://yasijay13.github.io/velaris-agent-avatar-proto/orbit.html) <br> Rings and orbiting particles around a glowing core. | ![orbit avatar preview](screenshot-orbit.png) |
-| [**Particle cube**](https://yasijay13.github.io/velaris-agent-avatar-proto/particle-cube.html) <br> A 12×12 particle lattice deforming as one continuous surface via a periodic wave field, lit by an independently travelling brightness hotspot. | ![particle cube avatar preview](screenshot-cube.png) |
+| [**Particle surface**](https://yasijay13.github.io/velaris-agent-avatar-proto/particle-surface.html) <br> A 12×12 particle lattice deforming as one continuous surface via a periodic wave field, lit by an independently travelling brightness hotspot. | ![particle surface avatar preview](screenshot-surface.png) |
 
 Landing page with both links: https://yasijay13.github.io/velaris-agent-avatar-proto/
 
@@ -25,7 +25,7 @@ Open either page and:
 ## Structure
 
 ```
-index.html            landing page, links to both prototypes
-orbit.html             orbital particle renderer
-particle-cube.html     particle cube renderer
+index.html              landing page, links to both prototypes
+orbit.html              orbital particle renderer
+particle-surface.html   particle surface renderer
 ```
