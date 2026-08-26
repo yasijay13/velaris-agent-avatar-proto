@@ -30,6 +30,8 @@
   .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 64px}
 
   header{margin-bottom:24px}
+  .back{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:500;color:var(--ink-2);text-decoration:none;margin-bottom:10px}
+  .back:hover{color:var(--indigo)}
   h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 4px}
   header p{margin:0;color:var(--ink-2);font-size:13px;max-width:64ch}
 
@@ -114,6 +116,7 @@
 <div class="wrap">
 
 <header>
+  <a class="back" href="index.html">← All avatars</a>
   <h1>Particle cube avatar as a state machine</h1>
   <p>Same point-grid renderer as the source recording — a rotating lattice of glowing dots on the cube's visible faces, with a brightness wave sweeping across it — rebuilt as continuous parameters instead of a fixed loop. Run a command to see it react.</p>
 </header>
