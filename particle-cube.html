@@ -48,13 +48,13 @@
     transition:background .35s ease;
   }
   .bigbox[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
-  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#17101A,#08050A)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#0A0203,#000000)}
   .sizes{display:flex;gap:22px;align-items:flex-end}
   .sizecol{text-align:center}
   .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
   .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
   .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
-  .chip-holder[data-bg="dark"]{background:#120C14}
+  .chip-holder[data-bg="dark"]{background:#000000}
 
   .status{
     margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
@@ -200,20 +200,21 @@
   // jitter   0..1  chaotic positional noise — instability, not life
   // drift    0..1  smooth independent per-particle floating motion — always-on life
   // twinkle  0..1  per-particle star-like flicker, own phase/frequency per point
+  // trail    0..1  vertical light-rain trailing beneath brighter particles
   // hue      deg   base colour
   // sat      0..1  saturation
   // breath   0..1  amplitude of idle breathing / tilt wobble
   const STATES = {
-    paused:  { energy:0.14, spin:0.03, density:4, wave:0.10, waveSpd:0.3, spread:0.55, jitter:0.00, drift:0.03, twinkle:0.12, hue:230, sat:0.10, breath:0.10, label:"Paused" },
-    idle:    { energy:0.55, spin:0.18, density:6, wave:0.40, waveSpd:0.8, spread:0.80, jitter:0.02, drift:0.14, twinkle:0.58, hue:8,   sat:0.85, breath:1.00, label:"Idle / armed" },
-    trigger: { energy:1.00, spin:0.60, density:7, wave:0.75, waveSpd:1.6, spread:1.00, jitter:0.08, drift:0.20, twinkle:0.85, hue:8,   sat:0.95, breath:0.30, label:"Triggered" },
-    working: { energy:0.85, spin:1.00, density:8, wave:0.90, waveSpd:2.4, spread:0.65, jitter:0.04, drift:0.11, twinkle:0.62, hue:14,  sat:0.95, breath:0.35, label:"Working" },
-    review:  { energy:0.55, spin:0.10, density:5, wave:0.28, waveSpd:0.5, spread:0.75, jitter:0.03, drift:0.12, twinkle:0.40, hue:38,  sat:0.90, breath:0.80, label:"Needs review" },
-    success: { energy:0.90, spin:0.28, density:6, wave:0.50, waveSpd:0.9, spread:0.90, jitter:0.00, drift:0.17, twinkle:0.78, hue:152, sat:0.75, breath:0.45, label:"Succeeded" },
-    failed:  { energy:0.65, spin:0.14, density:5, wave:0.35, waveSpd:0.6, spread:0.60, jitter:0.55, drift:0.08, twinkle:0.68, hue:352, sat:0.85, breath:0.60, label:"Failed" }
+    paused:  { energy:0.14, spin:0.03, density:7,  wave:0.10, waveSpd:0.3, spread:0.55, jitter:0.00, drift:0.03, twinkle:0.12, trail:0.15, hue:230, sat:0.10, breath:0.10, label:"Paused" },
+    idle:    { energy:0.60, spin:0.18, density:10, wave:0.40, waveSpd:0.8, spread:0.80, jitter:0.02, drift:0.14, twinkle:0.58, trail:0.85, hue:8,   sat:0.90, breath:1.00, label:"Idle / armed" },
+    trigger: { energy:1.00, spin:0.60, density:12, wave:0.75, waveSpd:1.6, spread:1.00, jitter:0.08, drift:0.20, twinkle:0.85, trail:0.90, hue:8,   sat:0.95, breath:0.30, label:"Triggered" },
+    working: { energy:0.90, spin:1.00, density:14, wave:0.90, waveSpd:2.4, spread:0.65, jitter:0.04, drift:0.11, twinkle:0.62, trail:0.95, hue:14,  sat:0.95, breath:0.35, label:"Working" },
+    review:  { energy:0.55, spin:0.10, density:9,  wave:0.28, waveSpd:0.5, spread:0.75, jitter:0.03, drift:0.12, twinkle:0.40, trail:0.50, hue:38,  sat:0.90, breath:0.80, label:"Needs review" },
+    success: { energy:0.90, spin:0.28, density:10, wave:0.50, waveSpd:0.9, spread:0.90, jitter:0.00, drift:0.17, twinkle:0.78, trail:0.70, hue:152, sat:0.75, breath:0.45, label:"Succeeded" },
+    failed:  { energy:0.65, spin:0.14, density:9,  wave:0.35, waveSpd:0.6, spread:0.60, jitter:0.55, drift:0.08, twinkle:0.68, trail:0.60, hue:352, sat:0.85, breath:0.60, label:"Failed" }
   };
 
-  const RATE = { energy:5.5, spin:2.4, density:3.0, wave:4.0, waveSpd:3.2, spread:3.2, jitter:4.5, drift:3.5, twinkle:4.0, hue:3.0, sat:3.5, breath:2.5 };
+  const RATE = { energy:5.5, spin:2.4, density:3.0, wave:4.0, waveSpd:3.2, spread:3.2, jitter:4.5, drift:3.5, twinkle:4.0, trail:3.5, hue:3.0, sat:3.5, breath:2.5 };
 
   const cur = Object.assign({}, STATES.idle);
   delete cur.label;
@@ -223,7 +224,7 @@
   let queue = [];
 
   // ---- Cube point cloud: build once at max density, subsample by density param ----
-  const MAXN = 8;
+  const MAXN = 14;
   function buildFace(axis, sign){
     // axis: 0=x,1=y,2=z fixed at sign; other two vary across MAXN grid
     const pts = [];
@@ -342,7 +343,7 @@
       const flick = Math.pow(Math.max(0, raw*0.5+0.5), 3.1); // biases toward dim, rarer sharper bright pop
       const bright = base * ((1 - cur.twinkle*0.8) + cur.twinkle*0.8 * flick * 1.9);
 
-      proj.push({ sx:sxp, sy:syp, z:z2, pers, bright });
+      proj.push({ sx:sxp, sy:syp, z:z2, pers, bright, seed:p.rt });
     }
     proj.sort((a,b) => a.z - b.z);
 
@@ -362,8 +363,30 @@
       const starSat = Math.max(0, sat * (1 - bc*0.62));
       const starLight = Math.min(0.94, 0.30 + bc*0.6);
 
+      // vertical light-rain trail — a train of shrinking, fading dots falling straight down
+      // in screen space (independent of cube rotation), the way the reference clip's cascade reads.
+      // Length and dot count are gated by the point's own hash so trails vary organically instead
+      // of every particle sprouting a uniform tail.
+      if(detail > 0.4 && cur.trail > 0.02 && bc > 0.10){
+        const chance = Math.pow(q.seed, 1.7);
+        const segCount = Math.round(chance * 11 * cur.trail);
+        if(segCount > 1){
+          const trailLen = r * (4 + bc*24) * (0.25 + chance*0.9) * cur.trail;
+          for(let s=1; s<=segCount; s++){
+            const ft = s/segCount;
+            const fade = Math.pow(1-ft, 1.7) * bc;
+            if(fade < 0.02) continue;
+            const sr = Math.max(0.4, r * (0.8 - ft*0.55));
+            const tSat = Math.max(0, starSat * (1 - ft*0.25));
+            const tLight = Math.max(0.32, starLight * (1 - ft*0.45));
+            ctx.fillStyle = hsl(h, tSat, tLight, Math.min(1, fade*0.85));
+            ctx.beginPath(); ctx.arc(q.sx, q.sy + ft*trailLen, sr, 0, Math.PI*2); ctx.fill();
+          }
+        }
+      }
+
       if(detail > 0.4){
-        const glowR = r * (3.2 + bc*1.4);
+        const glowR = r * (3.6 + bc*1.8);
         const g = ctx.createRadialGradient(q.sx,q.sy,0,q.sx,q.sy,glowR);
         g.addColorStop(0, hsl(h, starSat, Math.min(0.85,starLight+0.12), 0.60*bc));
         g.addColorStop(1, hsl(h, sat, 0.5, 0));
@@ -391,8 +414,12 @@
         ctx.restore();
       }
 
+      // additive only for the tiny hot core — small enough area that dense overlap
+      // still reads as sparkle rather than washing the whole frame to white
+      ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = hsl(h, starSat, starLight, Math.min(1, 0.30+bc*0.85));
       ctx.beginPath(); ctx.arc(q.sx,q.sy,r,0,Math.PI*2); ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
     }
 
     // ambient core glow tying the cube together at rest
@@ -438,14 +465,14 @@
   }
 
   const paramsEl = document.getElementById("params");
-  const keys = ["energy","spin","density","wave","waveSpd","drift","twinkle","spread","jitter","hue","sat"];
+  const keys = ["energy","spin","density","wave","waveSpd","drift","twinkle","trail","spread","jitter","hue","sat"];
   paramsEl.innerHTML = keys.map(k => `<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
   let paintN=0;
   function renderParams(){
     if(paintN++ % 4) return;
     for(const k of keys){
       const v = cur[k];
-      const norm = k==="hue" ? v/360 : (k==="density" ? v/8 : (k==="waveSpd" ? v/3 : v));
+      const norm = k==="hue" ? v/360 : (k==="density" ? v/14 : (k==="waveSpd" ? v/3 : v));
       document.getElementById("bar-"+k).style.width = (Math.max(0,Math.min(1,norm))*100).toFixed(0)+"%";
       document.getElementById("val-"+k).textContent = (k==="density") ? v.toFixed(1) : (k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2));
     }
