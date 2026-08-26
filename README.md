@@ -14,7 +14,7 @@ States: `paused` · `idle / armed` · `trigger` · `working` · `needs review` �
 | [**Particle surface**](https://yasijay13.github.io/velaris-agent-avatar-proto/particle-surface.html) <br> A 12×12 particle lattice deforming as one continuous surface via a periodic wave field, lit by an independently travelling brightness hotspot. | ![particle surface avatar preview](screenshot-surface.png) |
 | [**Halo**](https://yasijay13.github.io/velaris-agent-avatar-proto/halo.html) <br> Four elliptical rings at independent tilts, each slowly precessing, with glowing nodes riding each ring. | ![halo avatar preview](screenshot-halo.png) |
 | [**Signal**](https://yasijay13.github.io/velaris-agent-avatar-proto/signal.html) <br> A hub node and seven satellites; a pulse relays out along each spoke on its own staggered offset. | ![signal avatar preview](screenshot-signal.png) |
-| [**Waveform**](https://yasijay13.github.io/velaris-agent-avatar-proto/waveform.html) <br> Six parallel rows folded into a tilted plane, carrying one travelling sine wave across the depth. | ![waveform avatar preview](screenshot-waveform.png) |
+| [**Waveform**](https://yasijay13.github.io/velaris-agent-avatar-proto/waveform.html) <br> Four layered ridgelines with a mirrored reflection; amplitude surges and settles like speech, not a metronome. | ![waveform avatar preview](screenshot-waveform.png) |
 | [**Helix**](https://yasijay13.github.io/velaris-agent-avatar-proto/helix.html) <br> Two interwoven strands from a single parametric curve, energy nodes sliding along each. | ![helix avatar preview](screenshot-helix.png) |
 
 Landing page with all links: https://yasijay13.github.io/velaris-agent-avatar-proto/

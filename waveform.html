@@ -48,13 +48,13 @@
     transition:background .35s ease;
   }
   .bigbox[data-bg="light"]{background:linear-gradient(160deg,#DBF3F1,#EEFAF9)}
-  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#041515,#010808)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#020507,#000000)}
   .sizes{display:flex;gap:22px;align-items:flex-end}
   .sizecol{text-align:center}
   .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
   .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
   .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#DBF3F1,#EEFAF9)}
-  .chip-holder[data-bg="dark"]{background:#010808}
+  .chip-holder[data-bg="dark"]{background:#000000}
 
   .status{
     margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
@@ -118,7 +118,7 @@
 <header>
   <a class="back" href="index.html">← All avatars</a>
   <h1>Waveform avatar as a state machine</h1>
-  <p>A woven mesh, not parallel lines — seven rows and fourteen columns, connected both ways, draped over one travelling sine wave offset by depth. A bright marker per row rides its own wave crest at a shared horizontal position, sweeping the whole net once per loop.</p>
+  <p>Four layered ridgelines, each a small Fourier sum of travelling sine terms, with a mirrored reflection below — the classic voice-waveform read. Amplitude isn't constant: a handful of raised-cosine "words" placed around the loop surge and settle, so it reads as speech rather than a metronome.</p>
 </header>
 
 <div class="grid">
@@ -179,7 +179,7 @@
 </div>
 
 <footer>
-  Every row shares one formula, <code>y = sin(x·freq + phase·τ − z·offset)</code> — only <code>z</code> (which row) differs, so the fold reads as one coherent surface rather than six unrelated lines. <code>amp</code> is the wave's vertical amplitude; <code>spread</code> scales the whole folded plane. The travelling highlight's x-position is <code>−1 + 2·phase</code>, shared by every row, which is what makes it look like one wave sweeping across the fold rather than six independent markers.
+  Each ridge is a sum of a few sine terms at different spatial frequencies and amplitudes — a cheap Fourier series, not a single sine — which is what keeps the silhouette irregular and organic instead of one clean repeating hump. Every term also travels in time at its own small integer speed, so the ridge keeps shifting even when the "speech" envelope is quiet. That envelope is a handful of raised-cosine humps placed around the loop, gated by <code>breath</code>; it multiplies every layer at once, so all four ridges surge and settle together like one voice. <code>jitter</code> (failed only) breaks individual samples off the curve.
 </footer>
 
 </div>
@@ -191,20 +191,25 @@
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const TAU = Math.PI*2;
   const LOOP_MS = 3000;
-  const ROWS = 7;
-  const SEGMENTS = 13;
-  const TILT = 0.62;
+  const SEG = 56;
 
+  // ---- State targets ----
+  // energy   0..1  overall brightness/glow ceiling
+  // speed    0..3  playback rate of the (still seamless) travelling harmonics
+  // spread   0..1  horizontal + vertical scale of the whole waveform
+  // jitter   0..1  per-sample breakup — reserved for "failed"
+  // hue      deg   base colour
+  // breath   0..1  depth of the speech envelope — how hard the "words" surge
   const STATES = {
-    paused:  { energy:0.16, speed:0.12, spread:0.55, amp:0.20, jitter:0.00, hue:184, breath:0.15, label:"Paused" },
-    idle:    { energy:0.58, speed:0.45, spread:0.85, amp:0.55, jitter:0.00, hue:184, breath:1.00, label:"Idle / armed" },
-    trigger: { energy:1.00, speed:0.80, spread:1.00, amp:0.70, jitter:0.00, hue:184, breath:0.30, label:"Triggered" },
-    working: { energy:0.90, speed:1.55, spread:0.90, amp:0.85, jitter:0.00, hue:192, breath:0.35, label:"Working" },
-    review:  { energy:0.55, speed:0.35, spread:0.78, amp:0.40, jitter:0.00, hue:40,  breath:0.80, label:"Needs review" },
-    success: { energy:0.90, speed:0.55, spread:0.95, amp:0.55, jitter:0.00, hue:150, breath:0.45, label:"Succeeded" },
-    failed:  { energy:0.62, speed:0.45, spread:0.80, amp:0.35, jitter:0.80, hue:352, breath:0.55, label:"Failed" }
+    paused:  { energy:0.16, speed:0.15, spread:0.55, jitter:0.00, hue:196, breath:0.08, label:"Paused" },
+    idle:    { energy:0.55, speed:0.45, spread:0.85, jitter:0.00, hue:196, breath:0.55, label:"Idle / armed" },
+    trigger: { energy:1.00, speed:0.80, spread:1.00, jitter:0.00, hue:196, breath:0.80, label:"Triggered" },
+    working: { energy:0.92, speed:1.35, spread:0.95, jitter:0.00, hue:202, breath:0.95, label:"Working" },
+    review:  { energy:0.50, speed:0.35, spread:0.78, jitter:0.00, hue:40,  breath:0.35, label:"Needs review" },
+    success: { energy:0.90, speed:0.55, spread:0.95, jitter:0.00, hue:150, breath:0.70, label:"Succeeded" },
+    failed:  { energy:0.60, speed:0.50, spread:0.80, jitter:0.80, hue:352, breath:0.45, label:"Failed" }
   };
-  const RATE = { energy:5.0, speed:3.0, spread:3.2, amp:3.5, jitter:5.0, hue:3.0, breath:2.5 };
+  const RATE = { energy:5.0, speed:3.0, spread:3.2, jitter:5.0, hue:3.0, breath:2.5 };
 
   const cur = Object.assign({}, STATES.idle);
   delete cur.label;
@@ -217,6 +222,44 @@
   function hash(seed){ const v = Math.sin(seed*91.345)*43758.5453; return v - Math.floor(v) - 0.5; }
   function c(s,l,a){ return `hsla(${cur.hue.toFixed(0)},${s}%,${l}%,${Math.max(0,Math.min(1,a)).toFixed(3)})`; }
 
+  // A handful of "words" placed around the loop — raised-cosine humps, each with its own
+  // centre and width. Summed and gated by `breath`, this is what makes amplitude surge and
+  // settle like speech instead of oscillating on a metronome.
+  const WORDS = [
+    { c:0.05, w:0.09 }, { c:0.22, w:0.13 }, { c:0.40, w:0.07 },
+    { c:0.55, w:0.15 }, { c:0.76, w:0.10 }, { c:0.92, w:0.06 }
+  ];
+  function envelope(phase, breath){
+    let e = 0;
+    for(const w of WORDS){
+      let d = Math.abs(phase - w.c); d = Math.min(d, 1-d);
+      if(d < w.w) e += Math.pow(Math.cos((d/w.w)*(Math.PI/2)), 2);
+    }
+    return 0.10 + Math.min(1, e) * breath;
+  }
+
+  // Four ridgelines, back to front: fewer/lower harmonics and dimmer, less saturated colour
+  // in back; more harmonics, more saturation and height up front — the classic layered look.
+  const LAYERS = [
+    { terms:[[0.9,0.50,1],[1.8,0.24,2]],                                   phase:0.00, h:0, sat:15, light:78, alpha:0.16, height:0.50 },
+    { terms:[[1.0,0.48,1],[2.1,0.22,2],[3.4,0.11,3]],                      phase:0.18, h:0, sat:35, light:72, alpha:0.24, height:0.68 },
+    { terms:[[1.1,0.45,1],[2.6,0.22,2],[4.5,0.13,4],[6.8,0.06,5]],         phase:0.36, h:0, sat:70, light:64, alpha:0.42, height:0.85 },
+    { terms:[[1.3,0.40,1],[3.1,0.20,3],[5.6,0.13,4],[8.3,0.07,6],[11,0.04,7]], phase:0.55, h:-8, sat:88, light:58, alpha:0.60, height:1.00 }
+  ];
+
+  // Rectified (always non-negative) rather than a plain bipolar sine sum — that's what
+  // gives the jagged "terrain touching a shared baseline" silhouette in the reference,
+  // instead of a wave that dips symmetrically below its own centre line.
+  function ridgeY(layer, x, theta, env, J, seedBase){
+    let y = 0;
+    for(const [f,a,spd] of layer.terms){
+      y += a * Math.sin(x*f*3.0 + theta*spd + layer.phase*TAU);
+    }
+    y = Math.abs(y);
+    if(J) y += Math.abs(hash(seedBase + Math.round(x*37)))*J*0.6;
+    return y * env * layer.height;
+  }
+
   const dpr = Math.min(window.devicePixelRatio||1,2);
   const views = ["c-big","c-64","c-40","c-24"].map(id=>{
     const el = document.getElementById(id);
@@ -225,95 +268,90 @@
     return { ctx: el.getContext("2d"), size: cssW };
   });
 
-  function project(x, y, z, scale){
-    const sx = (x*Math.cos(TILT) - z*Math.sin(TILT)) * scale;
-    const sy = (x*Math.sin(TILT) + z*Math.cos(TILT)) * scale * 0.30 + y*scale*0.55;
-    return { sx, sy };
-  }
-
   function draw(view, phase){
     const { ctx, size } = view;
     const S = size*dpr;
     ctx.clearRect(0,0,S,S);
     ctx.save();
-    ctx.translate(S/2,S/2);
+    ctx.translate(S/2, S*0.50);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.globalCompositeOperation = "lighter";
 
     const detail = size>=140?1:(size>=56?0.6:0.3);
-    const scale = S*0.42*(0.6+cur.spread*0.5);
+    const halfW = S*0.46*(0.6+cur.spread*0.4);
+    const ampScale = S*0.20*(0.6+cur.spread*0.5);
     const eMul = 0.30+cur.energy*0.85;
     const J = cur.jitter;
-    const highlightX = -1 + 2*phase;
+    const theta = phase*TAU;
+    const env = envelope(phase, cur.breath);
+    const n = detail>0.4 ? SEG : Math.round(SEG*0.4);
 
-    // Build the full grid once — a woven mesh, not independent parallel strokes.
-    // Rows AND columns get connected, which is what makes this read as a draped
-    // net rather than a stack of unrelated wave traces.
-    const grid = [];
-    for(let r=0;r<ROWS;r++){
-      const z = (r/(ROWS-1))*2-1;
-      const jz = z + hash(r+10)*J*0.25;
-      const row = [];
-      for(let i=0;i<=SEGMENTS;i++){
-        const x = (i/SEGMENTS)*2-1;
-        const y = Math.sin(x*4.2 + phase*TAU - jz*1.1) * 0.30 * cur.amp + hash(r*13+i+100)*J*0.06;
-        const p = project(x,y,jz,scale);
-        row.push({ x, y, z:jz, sx:p.sx, sy:p.sy, rowDepth:(z+1)/2 });
+    const built = LAYERS.map((layer, li) => {
+      const pts = [];
+      for(let i=0;i<=n;i++){
+        const x = (i/n)*2-1;
+        const y = ridgeY(layer, x, theta, env, J, li*500);
+        pts.push({ sx: x*halfW, sy: -y*ampScale });
       }
-      grid.push(row);
-    }
+      return pts;
+    });
 
-    if(detail>0.3){
-      // columns first (behind), then rows on top — rows carry the wave's identity
-      for(let i=0;i<=SEGMENTS;i++){
-        ctx.beginPath();
-        for(let r=0;r<ROWS;r++){
-          const n = grid[r][i];
-          if(r===0) ctx.moveTo(n.sx,n.sy); else ctx.lineTo(n.sx,n.sy);
-        }
-        ctx.strokeStyle = c(75,58,0.26*eMul);
-        ctx.lineWidth = 1;
-        ctx.stroke();
+    function fillRidge(pts, layer, mirror, hueOverride){
+      const h = hueOverride!=null ? hueOverride : (cur.hue+layer.h+360)%360;
+      const baseA = layer.alpha * eMul * (mirror?0.55:1);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].sx, 0);
+      pts.forEach(p => ctx.lineTo(p.sx, mirror ? -p.sy*0.55 : p.sy)); // sy is always <=0 (up); mirror flips it down
+      ctx.lineTo(pts[pts.length-1].sx, 0);
+      ctx.closePath();
+      let grad;
+      if(mirror){
+        // bright at the baseline (the "water's edge"), fading out with depth
+        const bottom = Math.max(1, ...pts.map(p=>-p.sy*0.55));
+        grad = ctx.createLinearGradient(0, 0, 0, bottom);
+        grad.addColorStop(0, `hsla(${h.toFixed(0)},${layer.sat}%,${Math.min(92,layer.light+14)}%,${(baseA*0.9).toFixed(3)})`);
+        grad.addColorStop(1, `hsla(${h.toFixed(0)},${layer.sat}%,${layer.light}%,0)`);
+      } else {
+        // bright at the ridge line, fading down into the baseline
+        const top = Math.min(-1, ...pts.map(p=>p.sy));
+        grad = ctx.createLinearGradient(0, top, 0, 0);
+        grad.addColorStop(0, `hsla(${h.toFixed(0)},${layer.sat}%,${Math.min(92,layer.light+14)}%,${(baseA*0.9).toFixed(3)})`);
+        grad.addColorStop(1, `hsla(${h.toFixed(0)},${layer.sat}%,${layer.light}%,0)`);
       }
-      for(let r=0;r<ROWS;r++){
-        const row = grid[r];
-        const rowAlpha = (0.22 + (1-row[0].rowDepth)*0.55) * eMul;
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      if(!mirror && detail>0.3){
         ctx.beginPath();
-        row.forEach((n,i)=>{ if(i===0) ctx.moveTo(n.sx,n.sy); else ctx.lineTo(n.sx,n.sy); });
-        ctx.strokeStyle = c(85, 60, rowAlpha);
-        ctx.lineWidth = (1.3 - row[0].rowDepth*0.6);
-        ctx.shadowColor = `hsl(${cur.hue.toFixed(0)},90%,55%)`;
-        ctx.shadowBlur = 4 + (1-row[0].rowDepth)*6*eMul;
+        pts.forEach((p,i)=> i===0?ctx.moveTo(p.sx,p.sy):ctx.lineTo(p.sx,p.sy));
+        ctx.strokeStyle = `hsla(${h.toFixed(0)},${Math.min(100,layer.sat+15)}%,${Math.min(95,layer.light+18)}%,${(layer.alpha*eMul*1.4).toFixed(3)})`;
+        ctx.lineWidth = 1.1 + layer.height*0.7;
+        ctx.shadowColor = `hsl(${h.toFixed(0)},95%,60%)`;
+        ctx.shadowBlur = (2+layer.height*5)*eMul;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
-      // node dots at every intersection — the "woven" read comes from these as much as the lines
-      grid.forEach(row => row.forEach(n => {
-        const near = Math.max(0, 1 - Math.abs(n.x-highlightX)*1.6);
-        const b = (0.22 + (1-n.rowDepth)*0.18 + near*0.5) * eMul;
-        ctx.fillStyle = c(70, 66, b);
-        ctx.beginPath(); ctx.arc(n.sx, n.sy, Math.max(0.7, S*0.0065*(0.6+near)), 0, TAU); ctx.fill();
-      }));
     }
 
-    // travelling highlight marker riding each row's crest, sweeping the fold once per loop
-    grid.forEach(row=>{
-      const rowDepth = row[0].rowDepth;
-      const hx = highlightX;
-      const hy = Math.sin(hx*4.2 + phase*TAU - row[0].z*1.1) * 0.30 * cur.amp;
-      const hp = project(hx, hy, row[0].z, scale);
-      const markerBoost = 0.5 + 0.5*(1-rowDepth);
-      const g = ctx.createRadialGradient(hp.sx,hp.sy,0,hp.sx,hp.sy,S*0.05*markerBoost);
-      g.addColorStop(0, c(20, 95, 0.85*eMul*markerBoost));
-      g.addColorStop(1, c(80, 55, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(hp.sx,hp.sy,S*0.05*markerBoost,0,TAU); ctx.fill();
-      ctx.fillStyle = c(15, 97, 0.9*eMul);
-      ctx.beginPath(); ctx.arc(hp.sx,hp.sy,Math.max(0.8,S*0.010*markerBoost),0,TAU); ctx.fill();
-    });
+    // reflection first (behind), faded and squashed, then the ridges themselves front to back->front
+    if(detail>0.3){
+      built.forEach((pts,li)=> fillRidge(pts, LAYERS[li], true));
+    }
+    built.forEach((pts,li)=> fillRidge(pts, LAYERS[li], false));
 
-    ctx.globalCompositeOperation = "source-over";
+    // sparse vertical static, twinkling faintly with the envelope — the particle texture
+    // in the reference, kept restrained so it never competes with the ridgelines
+    if(detail>0.6){
+      for(let i=0;i<18;i++){
+        const x = (hash(i*3+1))*halfW*1.9;
+        const h0 = -(0.55+hash(i*7+2)*0.4)*ampScale*1.3;
+        const flick = 0.15+0.5*Math.max(0, Math.sin(theta*3+i*2.1));
+        ctx.strokeStyle = c(20, 85, 0.10*eMul*flick);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, h0); ctx.lineTo(x, h0*0.4); ctx.stroke();
+      }
+    }
+
     ctx.restore();
   }
 
@@ -341,7 +379,7 @@
   }
 
   const paramsEl = document.getElementById("params");
-  const keys = ["energy","speed","spread","amp","jitter","hue","breath"];
+  const keys = ["energy","speed","spread","jitter","hue","breath"];
   paramsEl.innerHTML = keys.map(k=>`<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
   let paintN=0;
   function renderParams(){
@@ -387,7 +425,7 @@
     apply("trigger", label);
     queue.push({ at: now+520, state:"working", note:"run started" });
     const ok = Math.random() > 0.28;
-    const dur = 1600+Math.random()*1400;
+    const dur = 1600 + Math.random()*1400;
     if(ok){
       queue.push({ at: now+520+dur, state:"success", note:"reply drafted" });
       queue.push({ at: now+520+dur+2200, state:"idle", note:"back to armed" });
