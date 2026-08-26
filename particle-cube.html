@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Velaris agent avatar — particle cube state model</title>
+<style>
+  :root{
+    --ink:#0F1533;
+    --ink-2:#4A5578;
+    --ink-3:#7C87A8;
+    --line:#E3E7F2;
+    --panel:#FFFFFF;
+    --page:#F5F7FC;
+    --indigo:#4F46E5;
+    --indigo-soft:#EEF0FE;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--page);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 64px}
+
+  header{margin-bottom:24px}
+  h1{font-size:19px;font-weight:650;letter-spacing:-0.01em;margin:0 0 4px}
+  header p{margin:0;color:var(--ink-2);font-size:13px;max-width:64ch}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .panel h2{font-size:11px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:var(--ink-3);margin:0 0 14px}
+
+  .stage{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .bigbox{
+    width:260px;height:260px;border-radius:12px;flex:none;
+    display:grid;place-items:center;position:relative;overflow:hidden;
+    transition:background .35s ease;
+  }
+  .bigbox[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
+  .bigbox[data-bg="dark"]{background:radial-gradient(120% 120% at 50% 40%,#17101A,#08050A)}
+  .sizes{display:flex;gap:22px;align-items:flex-end}
+  .sizecol{text-align:center}
+  .sizecol .cap{font:11px/1 var(--mono);color:var(--ink-3);margin-top:8px;display:block}
+  .chip-holder{border-radius:10px;display:grid;place-items:center;transition:background .35s ease}
+  .chip-holder[data-bg="light"]{background:linear-gradient(160deg,#EDE9FE,#F3F1FD)}
+  .chip-holder[data-bg="dark"]{background:#120C14}
+
+  .status{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  }
+  .badge{
+    font:11px/1 var(--mono);padding:5px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--ink-2);background:#FAFBFF;
+  }
+  .badge b{color:var(--ink);font-weight:600}
+
+  .states{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  button{
+    font-family:var(--sans);font-size:12.5px;font-weight:500;
+    padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--ink-2);cursor:pointer;text-align:left;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  button:hover{border-color:#C7CFE6;color:var(--ink)}
+  button[aria-pressed="true"]{background:var(--indigo-soft);border-color:#C7C6F7;color:var(--indigo);font-weight:600}
+  button:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+
+  .cmd{display:flex;gap:6px;margin-top:14px}
+  .cmd input{
+    flex:1;min-width:0;font-family:var(--sans);font-size:12.5px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:8px;background:#FAFBFF;color:var(--ink);
+  }
+  .cmd input:focus{outline:2px solid var(--indigo);outline-offset:-1px;background:#fff}
+  .cmd button{flex:none;background:var(--indigo);border-color:var(--indigo);color:#fff;font-weight:600}
+  .cmd button:hover{background:#4338CA;color:#fff}
+
+  .toggle{display:flex;gap:6px;margin-top:14px}
+  .toggle button{flex:1;text-align:center}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  td{padding:5px 0;color:var(--ink-2);border-bottom:1px solid #F0F3FA}
+  td:last-child{text-align:right;color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .bar{height:3px;border-radius:2px;background:#EDF0F8;margin-top:3px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--indigo);border-radius:2px;transition:width .12s linear}
+
+  .log{
+    font:11.5px/1.7 var(--mono);color:var(--ink-2);
+    max-height:132px;overflow:auto;margin:0;padding:0;list-style:none;
+  }
+  .log li{padding:2px 0;border-bottom:1px solid #F4F6FC}
+  .log .t{color:var(--ink-3)}
+  .log .s{color:var(--indigo);font-weight:600}
+
+  footer{margin-top:20px;font-size:12px;color:var(--ink-3);line-height:1.6}
+  code{font-family:var(--mono);font-size:11.5px;background:#F0F3FA;padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+  @media (prefers-reduced-motion: reduce){
+    .bigbox,.chip-holder{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Particle cube avatar as a state machine</h1>
+  <p>Same point-grid renderer as the source recording — a rotating lattice of glowing dots on the cube's visible faces, with a brightness wave sweeping across it — rebuilt as continuous parameters instead of a fixed loop. Run a command to see it react.</p>
+</header>
+
+<div class="grid">
+
+  <div class="panel">
+    <h2>Render</h2>
+    <div class="stage">
+      <div class="bigbox" id="bigbox" data-bg="dark"><canvas id="c-big" width="240" height="240" style="width:240px;height:240px"></canvas></div>
+      <div class="sizes">
+        <div class="sizecol">
+          <div class="chip-holder" id="h64" data-bg="dark" style="width:80px;height:80px"><canvas id="c-64" width="64" height="64" style="width:64px;height:64px"></canvas></div>
+          <span class="cap">64px</span>
+        </div>
+        <div class="sizecol">
+          <div class="chip-holder" id="h40" data-bg="dark" style="width:56px;height:56px"><canvas id="c-40" width="40" height="40" style="width:40px;height:40px"></canvas></div>
+          <span class="cap">40px</span>
+        </div>
+        <div class="sizecol">
+          <div class="chip-holder" id="h24" data-bg="dark" style="width:40px;height:40px"><canvas id="c-24" width="24" height="24" style="width:24px;height:24px"></canvas></div>
+          <span class="cap">24px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span class="badge">state <b id="b-state">idle</b></span>
+      <span class="badge">since <b id="b-since">0.0s</b></span>
+      <span class="badge">fps <b id="b-fps">—</b></span>
+      <span class="badge">renderer <b>canvas 2d, 3d point grid</b></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Agent state</h2>
+    <div class="states" id="states"></div>
+
+    <div class="cmd">
+      <input id="cmdInput" placeholder="Draft renewal reply for Wflow" aria-label="Command">
+      <button id="cmdRun">Run</button>
+    </div>
+
+    <div class="toggle">
+      <button id="bgLight" aria-pressed="false">Light card</button>
+      <button id="bgDark" aria-pressed="true">Dark card</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Live parameters</h2>
+    <table id="params"></table>
+  </div>
+
+  <div class="panel">
+    <h2>Event log</h2>
+    <ul class="log" id="log"></ul>
+  </div>
+
+</div>
+
+<footer>
+  Points live on the six faces of a cube; back-facing faces cull out as the lattice turns, which is what reads as rotation rather than a flat sprite spin. <code>wave</code> is the coherent diagonal sweep across the whole lattice; <code>twinkle</code> is per-particle star flicker, each point running its own randomized frequency and phase so nothing repeats or syncs; <code>drift</code> is slow independent floating motion layered on top of the rigid rotation, always on, distinct from <code>jitter</code> which is instability reserved for the failed state. Brightness also shifts colour temperature — hot particles desaturate toward white, dim ones sit in the base hue — which is what makes a pop read as a spark rather than a dot getting bigger. <code>hue</code> is the only thing that should ever be treated as a brand decision.
+</footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- State targets ----
+  // energy   0..1  overall brightness / bloom
+  // spin     0..1  yaw rotation speed
+  // density  int   grid points per face edge
+  // wave     0..1  amplitude of the diagonal brightness sweep (whole-lattice)
+  // waveSpd  0..3  speed of the sweep
+  // spread   0..1  cube scale (contracted = focused, wide = expanded)
+  // jitter   0..1  chaotic positional noise — instability, not life
+  // drift    0..1  smooth independent per-particle floating motion — always-on life
+  // twinkle  0..1  per-particle star-like flicker, own phase/frequency per point
+  // hue      deg   base colour
+  // sat      0..1  saturation
+  // breath   0..1  amplitude of idle breathing / tilt wobble
+  const STATES = {
+    paused:  { energy:0.14, spin:0.03, density:4, wave:0.10, waveSpd:0.3, spread:0.55, jitter:0.00, drift:0.03, twinkle:0.12, hue:230, sat:0.10, breath:0.10, label:"Paused" },
+    idle:    { energy:0.55, spin:0.18, density:6, wave:0.40, waveSpd:0.8, spread:0.80, jitter:0.02, drift:0.14, twinkle:0.58, hue:8,   sat:0.85, breath:1.00, label:"Idle / armed" },
+    trigger: { energy:1.00, spin:0.60, density:7, wave:0.75, waveSpd:1.6, spread:1.00, jitter:0.08, drift:0.20, twinkle:0.85, hue:8,   sat:0.95, breath:0.30, label:"Triggered" },
+    working: { energy:0.85, spin:1.00, density:8, wave:0.90, waveSpd:2.4, spread:0.65, jitter:0.04, drift:0.11, twinkle:0.62, hue:14,  sat:0.95, breath:0.35, label:"Working" },
+    review:  { energy:0.55, spin:0.10, density:5, wave:0.28, waveSpd:0.5, spread:0.75, jitter:0.03, drift:0.12, twinkle:0.40, hue:38,  sat:0.90, breath:0.80, label:"Needs review" },
+    success: { energy:0.90, spin:0.28, density:6, wave:0.50, waveSpd:0.9, spread:0.90, jitter:0.00, drift:0.17, twinkle:0.78, hue:152, sat:0.75, breath:0.45, label:"Succeeded" },
+    failed:  { energy:0.65, spin:0.14, density:5, wave:0.35, waveSpd:0.6, spread:0.60, jitter:0.55, drift:0.08, twinkle:0.68, hue:352, sat:0.85, breath:0.60, label:"Failed" }
+  };
+
+  const RATE = { energy:5.5, spin:2.4, density:3.0, wave:4.0, waveSpd:3.2, spread:3.2, jitter:4.5, drift:3.5, twinkle:4.0, hue:3.0, sat:3.5, breath:2.5 };
+
+  const cur = Object.assign({}, STATES.idle);
+  delete cur.label;
+  let target = STATES.idle;
+  let stateName = "idle";
+  let stateAt = performance.now();
+  let queue = [];
+
+  // ---- Cube point cloud: build once at max density, subsample by density param ----
+  const MAXN = 8;
+  function buildFace(axis, sign){
+    // axis: 0=x,1=y,2=z fixed at sign; other two vary across MAXN grid
+    const pts = [];
+    for(let i=0;i<MAXN;i++){
+      for(let j=0;j<MAXN;j++){
+        const u = (i/(MAXN-1))*2-1;
+        const v = (j/(MAXN-1))*2-1;
+        let p;
+        if(axis===0) p=[sign,u,v];
+        else if(axis===1) p=[u,sign,v];
+        else p=[u,v,sign];
+        const n=[0,0,0]; n[axis]=sign;
+        pts.push({ x:p[0], y:p[1], z:p[2], nx:n[0], ny:n[1], nz:n[2], gi:i, gj:j });
+      }
+    }
+    return pts;
+  }
+  const allPoints = [
+    ...buildFace(0, 1), ...buildFace(0,-1),
+    ...buildFace(1, 1), ...buildFace(1,-1),
+    ...buildFace(2, 1), ...buildFace(2,-1)
+  ];
+  // deterministic per-point randoms so drift/twinkle/jitter never sync up or repeat visibly
+  function hash(seed){ const v = Math.sin(seed*12.9898)*43758.5453; return v - Math.floor(v); }
+  allPoints.forEach((p, i) => {
+    p.ph  = (Math.sin(p.x*12.9898+p.y*78.233+p.z*37.719)*43758.5453) % 1;
+    p.rx  = hash(i*1.13 + 0.31);
+    p.ry  = hash(i*2.71 + 1.77);
+    p.rz  = hash(i*3.37 + 2.93);
+    p.rt  = hash(i*4.19 + 0.57);   // twinkle phase seed
+    p.rt2 = hash(i*5.93 + 1.31);   // twinkle frequency seed
+  });
+
+  function hsl(h,s,l,a){ return `hsla(${h.toFixed(0)},${(s*100).toFixed(0)}%,${(l*100).toFixed(0)}%,${a.toFixed(3)})`; }
+
+  // ---- Canvases ----
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const views = ["c-big","c-64","c-40","c-24"].map(id => {
+    const el = document.getElementById(id);
+    const cssW = el.width, cssH = el.height;
+    el.width = cssW * dpr; el.height = cssH * dpr;
+    const ctx = el.getContext("2d");
+    return { ctx, size: cssW };
+  });
+
+  function draw(view, t){
+    const { ctx, size } = view;
+    const S = size * dpr;
+    ctx.clearRect(0,0,S,S);
+    ctx.save();
+    ctx.translate(S/2, S/2);
+
+    const detail = size >= 56 ? 1 : (size >= 36 ? 0.62 : 0.34);
+    const N = Math.max(3, Math.round(cur.density * (0.5 + detail*0.5)));
+    const step = MAXN / N;
+
+    const yaw = t * 0.00055 * cur.spin;
+    const breathe = Math.sin(t*0.0016) * 0.10 * cur.breath;
+    const tilt = -0.58 + breathe*0.4;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cx = Math.cos(tilt), sx = Math.sin(tilt);
+
+    const jitterAmt = cur.jitter * 0.16;
+    const driftAmt = cur.drift * 0.22;
+    const scale = S * 0.205 * (0.72 + cur.spread*0.4) * (1 + breathe*0.15);
+    const dist = 3.4;
+    const h = cur.hue, sat = cur.sat, e = cur.energy;
+
+    const proj = [];
+    for(let idx=0; idx<allPoints.length; idx++){
+      const p = allPoints[idx];
+      if(p.gi % step >= 1 || p.gj % step >= 1) continue; // density subsample
+
+      // chaotic instability (failed state) — fast, erratic
+      let jx=0, jy=0, jz=0;
+      if(jitterAmt){
+        jx = Math.sin(t*0.006 + p.ph*40) * jitterAmt;
+        jy = Math.cos(t*0.007 + p.ph*33) * jitterAmt;
+        jz = Math.sin(t*0.005 + p.ph*51) * jitterAmt;
+      }
+      // always-on independent floating motion — smooth, slow, never synchronized
+      // between particles because each uses its own hashed frequency + phase
+      let dx=0, dy=0, dz=0;
+      if(driftAmt){
+        dx = Math.sin(t*0.0016*(0.5+p.rx*0.9) + p.rx*23.1) * driftAmt;
+        dy = Math.cos(t*0.0013*(0.5+p.ry*0.9) + p.ry*19.4) * driftAmt;
+        dz = Math.sin(t*0.0011*(0.5+p.rz*0.9) + p.rz*27.6) * driftAmt;
+      }
+      let x=p.x+jx+dx, y=p.y+jy+dy, z=p.z+jz+dz;
+
+      // yaw (around Y), then tilt (around X)
+      let x1 = x*cy + z*sy;
+      let z1 = -x*sy + z*cy;
+      let y1 = y*cx - z1*sx;
+      let z2 = y*sx + z1*cx;
+
+      let nx1 = p.nx*cy + p.nz*sy;
+      let nz1 = -p.nx*sy + p.nz*cy;
+      let ny1 = p.ny*cx - nz1*sx;
+      let nz2 = p.ny*sx + nz1*cx;
+      if(nz2 < 0.04) continue; // backface cull
+
+      const pers = dist / (dist - z2);
+      const sxp = x1 * pers * scale;
+      const syp = -y1 * pers * scale;
+
+      // diagonal sweep — the coherent, whole-lattice wave
+      const wavePhase = (p.x + p.y + p.z) * 1.15 - t*0.0022*cur.waveSpd;
+      const waveVal = (Math.sin(wavePhase*3.0) * 0.5 + 0.5);
+      const base = (0.22 + waveVal*cur.wave) * (0.5 + e*0.65) * (0.35 + nz2*0.95);
+
+      // star twinkle — independent per-particle on/off, smooth (sine-based, never a hard cut),
+      // two layered frequencies from the point's own hash so nothing repeats in sync
+      const freqA = 1.3 + p.rt2*2.3, freqB = 0.45 + p.rt*1.05;
+      const raw = Math.sin(t*0.0021*freqA + p.rt*31) * 0.55 + Math.sin(t*0.0009*freqB + p.rt2*17) * 0.45;
+      const flick = Math.pow(Math.max(0, raw*0.5+0.5), 3.1); // biases toward dim, rarer sharper bright pop
+      const bright = base * ((1 - cur.twinkle*0.8) + cur.twinkle*0.8 * flick * 1.9);
+
+      proj.push({ sx:sxp, sy:syp, z:z2, pers, bright });
+    }
+    proj.sort((a,b) => a.z - b.z);
+
+    // only the genuinely brightest handful get a flare — a scatter of crossed
+    // streaks reads as noise, a few hero pops read as flair
+    const flareCap = size >= 140 ? 3 : (size >= 56 ? 1 : 0);
+    const flareSet = new Set(
+      proj.filter(q => q.bright > 0.88).sort((a,b) => b.bright - a.bright).slice(0, flareCap)
+    );
+
+    for(const q of proj){
+      const bc = Math.max(0, Math.min(1, q.bright));
+      const r = Math.max(0.7, S*0.0155) * (0.5 + q.pers*0.6) * (0.75 + bc*0.5);
+
+      // colour temperature: dim particles stay saturated base hue,
+      // bright ones desaturate toward a hot white core — this is the "star" read
+      const starSat = Math.max(0, sat * (1 - bc*0.62));
+      const starLight = Math.min(0.94, 0.30 + bc*0.6);
+
+      if(detail > 0.4){
+        const glowR = r * (3.2 + bc*1.4);
+        const g = ctx.createRadialGradient(q.sx,q.sy,0,q.sx,q.sy,glowR);
+        g.addColorStop(0, hsl(h, starSat, Math.min(0.85,starLight+0.12), 0.60*bc));
+        g.addColorStop(1, hsl(h, sat, 0.5, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(q.sx,q.sy,glowR,0,Math.PI*2); ctx.fill();
+      }
+
+      // soft 4-point flare, reserved for the capped set of hero pops — the "flair" in the source clip
+      if(detail > 0.55 && flareSet.has(q)){
+        const flareA = (bc-0.80)/0.20;
+        const flareLen = r * (5.5 + flareA*4.5);
+        ctx.save();
+        ctx.translate(q.sx,q.sy);
+        for(let ax=0; ax<2; ax++){
+          ctx.save();
+          if(ax) ctx.rotate(Math.PI/2);
+          ctx.scale(1, 0.11);
+          const fg = ctx.createRadialGradient(0,0,0,0,0,flareLen);
+          fg.addColorStop(0, hsl(h, starSat*0.5, 0.92, 0.35*flareA));
+          fg.addColorStop(1, hsl(h, starSat, 0.7, 0));
+          ctx.fillStyle = fg;
+          ctx.beginPath(); ctx.arc(0,0,flareLen,0,Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      ctx.fillStyle = hsl(h, starSat, starLight, Math.min(1, 0.30+bc*0.85));
+      ctx.beginPath(); ctx.arc(q.sx,q.sy,r,0,Math.PI*2); ctx.fill();
+    }
+
+    // ambient core glow tying the cube together at rest
+    if(detail > 0.4){
+      const coreR = S*0.30*(0.6+e*0.5);
+      const core = ctx.createRadialGradient(0,0,0,0,0,coreR);
+      core.addColorStop(0, hsl(h, sat*0.7, 0.6, 0.10*e));
+      core.addColorStop(1, hsl(h, sat, 0.5, 0));
+      ctx.fillStyle = core;
+      ctx.beginPath(); ctx.arc(0,0,coreR,0,Math.PI*2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // ---- Loop ----
+  let last = performance.now(), fpsAcc = 0, fpsN = 0;
+
+  function tick(now){
+    const dt = Math.min(0.05, (now-last)/1000);
+    last = now;
+
+    for(const k in RATE){
+      const k2 = Math.min(1, dt*RATE[k]*(reduced?4:1));
+      if(k==="hue"){
+        let d = target.hue - cur.hue;
+        if(d>180) d-=360; if(d<-180) d+=360;
+        cur.hue = (cur.hue + d*k2 + 360) % 360;
+      } else {
+        cur[k] += (target[k]-cur[k])*k2;
+      }
+    }
+
+    if(queue.length && now >= queue[0].at){ const q=queue.shift(); apply(q.state,q.note); }
+
+    for(const v of views) draw(v, now);
+
+    fpsAcc += 1/dt; fpsN++;
+    if(fpsN>=30){ document.getElementById("b-fps").textContent = Math.round(fpsAcc/fpsN); fpsN=0; fpsAcc=0; }
+    document.getElementById("b-since").textContent = ((now-stateAt)/1000).toFixed(1)+"s";
+    renderParams();
+    requestAnimationFrame(tick);
+  }
+
+  const paramsEl = document.getElementById("params");
+  const keys = ["energy","spin","density","wave","waveSpd","drift","twinkle","spread","jitter","hue","sat"];
+  paramsEl.innerHTML = keys.map(k => `<tr><td>${k}<div class="bar"><i id="bar-${k}"></i></div></td><td id="val-${k}">—</td></tr>`).join("");
+  let paintN=0;
+  function renderParams(){
+    if(paintN++ % 4) return;
+    for(const k of keys){
+      const v = cur[k];
+      const norm = k==="hue" ? v/360 : (k==="density" ? v/8 : (k==="waveSpd" ? v/3 : v));
+      document.getElementById("bar-"+k).style.width = (Math.max(0,Math.min(1,norm))*100).toFixed(0)+"%";
+      document.getElementById("val-"+k).textContent = (k==="density") ? v.toFixed(1) : (k==="hue" ? v.toFixed(0)+"°" : v.toFixed(2));
+    }
+  }
+
+  const logEl = document.getElementById("log");
+  function log(state, note){
+    const li = document.createElement("li");
+    const ts = new Date().toLocaleTimeString([], {hour12:false});
+    li.innerHTML = `<span class="t">${ts}</span> <span class="s">${state}</span>${note?" "+note:""}`;
+    logEl.prepend(li);
+    while(logEl.children.length>40) logEl.lastChild.remove();
+  }
+
+  function apply(name, note){
+    if(!STATES[name]) return;
+    target = STATES[name]; stateName = name; stateAt = performance.now();
+    document.getElementById("b-state").textContent = name;
+    for(const b of document.querySelectorAll("#states button")) b.setAttribute("aria-pressed", String(b.dataset.s===name));
+    log(name, note);
+  }
+
+  const statesEl = document.getElementById("states");
+  for(const [k,v] of Object.entries(STATES)){
+    const b = document.createElement("button");
+    b.textContent = v.label; b.dataset.s = k;
+    b.setAttribute("aria-pressed", String(k==="idle"));
+    b.addEventListener("click", () => { queue=[]; apply(k,"(manual)"); });
+    statesEl.append(b);
+  }
+
+  function runCommand(text){
+    queue = [];
+    const now = performance.now();
+    const label = text ? `"${text.slice(0,34)}"` : "";
+    apply("trigger", label);
+    queue.push({ at: now+520, state:"working", note:"run started" });
+    const ok = Math.random() > 0.28;
+    const dur = 1600 + Math.random()*1400;
+    if(ok){
+      queue.push({ at: now+520+dur, state:"success", note:"reply drafted" });
+      queue.push({ at: now+520+dur+2200, state:"idle", note:"back to armed" });
+    } else {
+      const needsReview = Math.random() > 0.5;
+      queue.push({ at: now+520+dur, state: needsReview?"review":"failed", note: needsReview?"insufficient context, task created":"contract terms not found" });
+      queue.push({ at: now+520+dur+3000, state:"idle", note:"back to armed" });
+    }
+  }
+
+  const input = document.getElementById("cmdInput");
+  document.getElementById("cmdRun").addEventListener("click", () => runCommand(input.value.trim()));
+  input.addEventListener("keydown", e => { if(e.key==="Enter") runCommand(input.value.trim()); });
+
+  const boxes = ["bigbox","h64","h40","h24"].map(id => document.getElementById(id));
+  const bl = document.getElementById("bgLight"), bd = document.getElementById("bgDark");
+  function setBg(mode){
+    for(const b of boxes) b.dataset.bg = mode;
+    bl.setAttribute("aria-pressed", String(mode==="light"));
+    bd.setAttribute("aria-pressed", String(mode==="dark"));
+  }
+  bl.addEventListener("click", () => setBg("light"));
+  bd.addEventListener("click", () => setBg("dark"));
+
+  log("idle", "renderer mounted");
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
